@@ -27,7 +27,8 @@ describe("presets", () => {
       for (const [k, v] of Object.entries(p.values)) {
         const def = SETTINGS.find((s) => s.key === k);
         expect(def, `${p.name}: unknown key ${k}`).toBeDefined();
-        expect(typeof v).toBe(def!.kind);
+        expect(typeof v).toBe(def!.kind === "choice" ? "string" : def!.kind);
+        if (def!.kind === "choice") expect(def!.options!.map((o) => o.value)).toContain(v);
         if (def!.kind === "number") {
           expect(v as number).toBeGreaterThanOrEqual(def!.min!);
           expect(v as number).toBeLessThanOrEqual(def!.max!);

@@ -99,7 +99,11 @@ function Section({ title, defs }: { title: string; defs: SettingDef[] }) {
 
 function SettingRow({ def }: { def: SettingDef }) {
   const value = useSettings((s) => s.values[def.key]);
-  const parentOn = useSettings((s) => (def.dependsOn ? (s.values[def.dependsOn] as boolean) : true));
+  const parentOn = useSettings((s) => {
+    if (!def.dependsOn) return true;
+    const pv = s.values[def.dependsOn];
+    return def.showWhen !== undefined ? pv === def.showWhen : !!pv;
+  });
   const set = useSettings((s) => s.set);
   const [help, setHelp] = useState(false);
   const isDefault = value === def.default;
@@ -117,13 +121,28 @@ function SettingRow({ def }: { def: SettingDef }) {
             {(value as number).toFixed(stepDecimals(def.step))}
             {def.unit && <span className="ml-0.5 opacity-60">{def.unit}</span>}
           </span>
-        ) : (
+        ) : def.kind === "choice" ? null : (
           <button id={def.key} role="switch" aria-checked={value as boolean} className="switch" data-on={value as boolean} onClick={() => set(def.key, !value)}>
             <span />
           </button>
         )}
       </div>
       {help && <p className="mt-1 text-xs leading-snug text-muted-foreground">{def.description}</p>}
+      {def.kind === "choice" && (
+        <div className="segmented mt-2" role="radiogroup" aria-label={def.label}>
+          {def.options!.map((o) => (
+            <button
+              key={o.value}
+              role="radio"
+              aria-checked={value === o.value}
+              data-on={value === o.value}
+              onClick={(e) => { set(def.key, o.value); (e.currentTarget as HTMLElement).blur(); }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
       {def.kind === "number" && (
         <input
           id={def.key}

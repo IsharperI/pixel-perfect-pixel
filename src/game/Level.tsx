@@ -1,14 +1,21 @@
+import { useEffect, useId, useRef } from "react";
+import * as THREE from "three";
 import { RigidBody } from "@react-three/rapier";
+import { registerFade } from "./fade";
 import { Grid, Html } from "@react-three/drei";
 
 type V3 = [number, number, number];
 
 function Block({ pos, size, color, rot }: { pos: V3; size: V3; color: string; rot?: V3 }) {
+  // Register so the camera can fade this block when it blocks the view.
+  const fadeId = useId();
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
+  useEffect(() => (mat.current ? registerFade(fadeId, mat.current) : undefined), [fadeId]);
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={pos} rotation={rot}>
+    <RigidBody type="fixed" colliders="cuboid" position={pos} rotation={rot} userData={{ fadeId }}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={size} />
-        <meshStandardMaterial color={color} roughness={0.8} />
+        <meshStandardMaterial ref={mat} color={color} roughness={0.8} />
       </mesh>
     </RigidBody>
   );

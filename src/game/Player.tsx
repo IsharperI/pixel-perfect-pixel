@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
-import { useSettings, num, bool, deriveJump, liveStats, useUI } from "./settings";
+import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
+import { updateFades } from "./fade";
 import { input, readMove } from "./input";
 
 export const SPAWN = new THREE.Vector3(0, 2, 6);
@@ -17,6 +18,8 @@ export function Player() {
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
   const shadow = useRef<THREE.Mesh>(null);
+  const silhouette = useRef<THREE.Mesh>(null);
+  const blocked = useMemo(() => new Set<string>(), []);
   const { world, rapier } = useRapier();
   const { camera, gl } = useThree();
 
@@ -30,19 +33,27 @@ export function Player() {
     camPitch: 0,
     camTarget: SPAWN.clone(),
     lastPos: SPAWN.clone(), // player position last frame, for the leash camera
+    camLen: 8, // current camera distance after Push In obstruction
     wasAirborne: false,
   });
 
-  const controller = useMemo(() => {
+  // The character controller is created and freed by the same effect, so if
+  // React mounts this component twice (dev mode, Suspense), each mount gets a
+  // fresh controller instead of reusing one that cleanup already freed.
+  const controllerRef = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
+  useEffect(() => {
     const c = world.createCharacterController(0.02);
     c.enableSnapToGround(0.3);
     c.enableAutostep(0.3, 0.2, true);
     c.setMaxSlopeClimbAngle((50 * Math.PI) / 180);
     c.setMinSlopeSlideAngle((55 * Math.PI) / 180);
     c.setApplyImpulsesToDynamicBodies(true);
-    return c;
+    controllerRef.current = c;
+    return () => {
+      controllerRef.current = null;
+      world.removeCharacterController(c);
+    };
   }, [world]);
-  useEffect(() => () => world.removeCharacterController(controller), [world, controller]);
 
   // Trail points
   const trail = useMemo(() => {
@@ -97,11 +108,11 @@ export function Player() {
   const tmp = useMemo(() => ({ v: new THREE.Vector3(), look: new THREE.Vector3() }), []);
 
   useFrame((_, rawDt) => {
-    const b = body.current, c = collider.current;
-    if (!b || !c) { return; }
-    step(b, c, rawDt);
+    const b = body.current, c = collider.current, controller = controllerRef.current;
+    if (!b || !c || !controller) return;
+    step(b, c, controller, rawDt);
   });
-  const step = (b: RapierRigidBody, c: RapierCollider, rawDt: number) => {
+  const step = (b: RapierRigidBody, c: RapierCollider, controller: NonNullable<typeof controllerRef.current>, rawDt: number) => {
     const dt = Math.min(rawDt, 0.05);
     const now = performance.now() / 1000;
     const S = useSettings.getState().values;
@@ -258,12 +269,61 @@ export function Player() {
     const fk = smooth <= 0.001 ? 1 : 1 - Math.exp(-dt / smooth);
     s.camTarget.lerp(tmp.look.set(next.x, next.y, next.z), fk);
     const height = num(S, "cameraHeight") + s.camPitch * dist;
-    camera.position.set(
-      s.camTarget.x + Math.sin(s.camYaw) * dist,
-      s.camTarget.y + height,
-      s.camTarget.z + Math.cos(s.camYaw) * dist,
-    );
-    camera.lookAt(s.camTarget.x, s.camTarget.y + 0.8, s.camTarget.z);
+    // Where the camera wants to be, as a direction + length from the look-at point
+    const lookY = s.camTarget.y + 0.8;
+    const wantX = s.camTarget.x + Math.sin(s.camYaw) * dist;
+    const wantY = s.camTarget.y + height;
+    const wantZ = s.camTarget.z + Math.cos(s.camYaw) * dist;
+    let ox = wantX - s.camTarget.x, oy = wantY - lookY, oz = wantZ - s.camTarget.z;
+    const wantLen = Math.hypot(ox, oy, oz) || 1;
+    ox /= wantLen; oy /= wantLen; oz /= wantLen;
+
+    // ---- obstruction handling
+    const mode = str(S, "cameraObstruction");
+    let len = wantLen;
+    if (mode === "push") {
+      // Mario 64 style: slide the camera in front of whatever is in the way.
+      const hit = world.castRay(
+        new rapier.Ray({ x: s.camTarget.x, y: lookY, z: s.camTarget.z }, { x: ox, y: oy, z: oz }),
+        wantLen, true, undefined, undefined, c,
+      );
+      const target = hit ? Math.max(hit.timeOfImpact - 0.3, 1) : wantLen;
+      // Pull in fast so walls never cover the player, ease back out slowly.
+      const k = 1 - Math.exp(-(target < s.camLen ? 20 : 4) * dt);
+      s.camLen += (target - s.camLen) * k;
+      len = Math.min(s.camLen, wantLen);
+    } else {
+      s.camLen = wantLen;
+    }
+    camera.position.set(s.camTarget.x + ox * len, lookY + oy * len, s.camTarget.z + oz * len);
+    // Never let the camera dip under the floor.
+    if (camera.position.y < 0.4) camera.position.y = 0.4;
+    camera.lookAt(s.camTarget.x, lookY, s.camTarget.z);
+
+    // Fade mode: anything between the player and the camera (or around the
+    // camera) turns see-through. Rays from feet, middle and head so partly
+    // hidden players count too. Faded objects keep their collision.
+    blocked.clear();
+    if (mode === "fade") {
+      const cp = camera.position;
+      for (const yOff of [-(HALF + RADIUS) + 0.15, 0, HALF + RADIUS - 0.1]) {
+        const from = { x: next.x, y: next.y + yOff, z: next.z };
+        const dx2 = cp.x - from.x, dy2 = cp.y - from.y, dz2 = cp.z - from.z;
+        const d2 = Math.hypot(dx2, dy2, dz2) || 1;
+        world.intersectionsWithRay(
+          new rapier.Ray(from, { x: dx2 / d2, y: dy2 / d2, z: dz2 / d2 }),
+          d2 + 0.3, true,
+          (hit) => {
+            const id = (hit.collider.parent()?.userData as { fadeId?: string } | undefined)?.fadeId;
+            if (id) blocked.add(id);
+            return true; // keep going: fade everything along the ray
+          },
+          undefined, undefined, c,
+        );
+      }
+    }
+    updateFades(blocked, num(S, "fadeOpacity"), dt);
+    if (silhouette.current) silhouette.current.visible = bool(S, "playerSilhouette");
 
     liveStats.speed = hs;
     liveStats.vy = s.vel.y;
@@ -282,23 +342,38 @@ export function Player() {
               <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
               <meshStandardMaterial color="#ff7a59" roughness={0.45} />
             </mesh>
+            {/* Silhouette: only drawn where something sits in front of the player (GreaterDepth) */}
+            <mesh ref={silhouette} renderOrder={10}>
+              <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
+              <meshBasicMaterial
+                color="#ff7a59"
+                transparent
+                opacity={0.55}
+                depthWrite={false}
+                depthFunc={THREE.GreaterDepth}
+                polygonOffset
+                polygonOffsetFactor={-1}
+                polygonOffsetUnits={-1}
+              />
+            </mesh>
             {/* eyes */}
             {[-0.17, 0.17].map((x) => (
               <group key={x} position={[x, 0.35, RADIUS - 0.06]}>
+                {/* Face parts don't write depth, so the silhouette doesn't treat them as "in front" of the player */}
                 <mesh>
                   <sphereGeometry args={[0.12, 16, 12]} />
-                  <meshStandardMaterial color="#ffffff" roughness={0.3} />
+                  <meshStandardMaterial color="#ffffff" roughness={0.3} depthWrite={false} />
                 </mesh>
-                <mesh position={[0, 0, 0.08]}>
+                <mesh position={[0, 0, 0.08]} renderOrder={1}>
                   <sphereGeometry args={[0.06, 12, 10]} />
-                  <meshStandardMaterial color="#1d2433" roughness={0.2} />
+                  <meshStandardMaterial color="#1d2433" roughness={0.2} depthWrite={false} />
                 </mesh>
               </group>
             ))}
             {/* nose */}
             <mesh position={[0, 0.12, RADIUS + 0.04]} rotation-x={Math.PI / 2} castShadow>
               <coneGeometry args={[0.09, 0.22, 12]} />
-              <meshStandardMaterial color="#ffb547" roughness={0.5} />
+              <meshStandardMaterial color="#ffb547" roughness={0.5} depthWrite={false} />
             </mesh>
           </group>
         </group>

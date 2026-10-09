@@ -145,5 +145,8 @@
   .preset-chip { font-size: .75rem; font-weight: 600; padding: .3rem .65rem; border-radius: 999px; background: var(--secondary); border: 1px solid var(--border); transition: all .15s; }
   .preset-chip:hover { border-color: var(--primary); }
   .preset-chip[data-on="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+  .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); }
+  .segmented button { font-size: .75rem; font-weight: 600; padding: .3rem .25rem; border-radius: .4rem; color: var(--muted-foreground); transition: all .15s; }
+  .segmented button[data-on="true"] { background: var(--card); color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / .15); }
   .tool-btn:hover { background: var(--foreground); color: var(--card); }
 }

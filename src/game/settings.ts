@@ -4,15 +4,18 @@ export type SettingDef = {
   key: string;
   label: string;
   category: "Movement" | "Jump" | "Camera";
-  kind: "number" | "boolean";
+  kind: "number" | "boolean" | "choice";
+  /** For kind "choice": the options shown as a segmented switch */
+  options?: { value: string; label: string }[];
   min?: number;
   max?: number;
   step?: number;
   unit?: string;
-  default: number | boolean;
+  default: number | boolean | string;
   description: string;
-  /** Only show when this boolean setting is on */
+  /** Only show when this setting is on (boolean) or equals `showWhen` */
   dependsOn?: string;
+  showWhen?: string;
 };
 
 // Add a new tunable by adding ONE entry here — the panel is generated from it.
@@ -37,9 +40,12 @@ export const SETTINGS: SettingDef[] = [
   { key: "followSmoothing", label: "Follow Smoothing", category: "Camera", kind: "number", min: 0, max: 1, step: 0.01, unit: "s", default: 0.15, description: "How much the camera lags behind the player. 0 is locked on." },
   { key: "autoRotate", label: "Auto-Rotate Behind Player", category: "Camera", kind: "boolean", default: true, description: "An extra pull that slowly swings the camera behind you while you run away from it, on top of the leash." },
   { key: "autoRotateSpeed", label: "Auto-Rotate Speed", category: "Camera", kind: "number", min: 0.1, max: 10, step: 0.1, default: 2, description: "How quickly the camera swings behind the player.", dependsOn: "autoRotate" },
+  { key: "cameraObstruction", label: "Obstruction", category: "Camera", kind: "choice", options: [{ value: "fade", label: "Fade" }, { value: "push", label: "Push In" }, { value: "off", label: "Off" }], default: "fade", description: "What happens when something gets between the camera and the player. Fade makes it see-through. Push In moves the camera closer, like Mario 64. Off ignores it." },
+  { key: "fadeOpacity", label: "Fade Opacity", category: "Camera", kind: "number", min: 0, max: 0.9, step: 0.05, default: 0.25, description: "How visible blocking objects stay when faded. 0 is invisible.", dependsOn: "cameraObstruction", showWhen: "fade" },
+  { key: "playerSilhouette", label: "Player Silhouette", category: "Camera", kind: "boolean", default: true, description: "Shows the player as a coloured outline whenever something hides them, so you never lose track of where you are." },
 ];
 
-export type SettingValues = Record<string, number | boolean>;
+export type SettingValues = Record<string, number | boolean | string>;
 
 export const defaultValues = (): SettingValues =>
   Object.fromEntries(SETTINGS.map((s) => [s.key, s.default]));
@@ -58,6 +64,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 3.2, timeToApex: 0.42, fallGravityMultiplier: 1.5, airControl: 0.35, maxFallSpeed: 30,
       coyoteTime: 0.08, jumpBuffer: 0.1,
       cameraDistance: 9, cameraHeight: 3.5, followSmoothing: 0.22, leashSwing: 1, autoRotate: true, autoRotateSpeed: 1.5,
+      cameraObstruction: "push", playerSilhouette: false,
     },
   },
   {
@@ -116,7 +123,7 @@ export const matchingPreset = (v: SettingValues): string | null => {
 
 type Store = {
   values: SettingValues;
-  set: (key: string, v: number | boolean) => void;
+  set: (key: string, v: number | boolean | string) => void;
   reset: () => void;
   load: (obj: Record<string, unknown>) => number;
 };
@@ -131,6 +138,7 @@ export const useSettings = create<Store>((set) => ({
     for (const def of SETTINGS) {
       const v = obj[def.key];
       if (def.kind === "boolean" && typeof v === "boolean") { next[def.key] = v; n++; }
+      if (def.kind === "choice" && typeof v === "string" && def.options?.some((o) => o.value === v)) { next[def.key] = v; n++; }
       if (def.kind === "number" && typeof v === "number" && Number.isFinite(v)) {
         next[def.key] = Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, v));
         n++;
@@ -143,6 +151,7 @@ export const useSettings = create<Store>((set) => ({
 
 export const num = (v: SettingValues, k: string) => v[k] as number;
 export const bool = (v: SettingValues, k: string) => v[k] as boolean;
+export const str = (v: SettingValues, k: string) => v[k] as string;
 
 /** gravity = 2h / t², jumpVelocity = g * t */
 export function deriveJump(height: number, timeToApex: number) {
