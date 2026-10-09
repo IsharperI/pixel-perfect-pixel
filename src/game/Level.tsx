@@ -23,12 +23,13 @@ function Label({ pos, text }: { pos: V3; text: string }) {
 }
 
 const COLORS = ["#7cc6fe", "#ffd166", "#06d6a0", "#ef8fb7", "#b8a1ff"];
+const colorAt = (i: number): string => COLORS[i % COLORS.length]!;
 
 export function Level() {
   // Jump gap ladder (x = -12), platforms top at y = 1
   const gaps = [2, 3, 4, 5, 6];
   const gapPlats: { z: number }[] = [{ z: -2 }];
-  gaps.forEach((g, i) => gapPlats.push({ z: gapPlats[i].z - 3 - g }));
+  gaps.forEach((g, i) => gapPlats.push({ z: gapPlats[i]!.z - 3 - g }));
 
   // Height ladder (x = 12)
   const heights = [1, 2, 3, 4, 5];
@@ -62,17 +63,17 @@ export function Level() {
 
       {/* Gap ladder */}
       {gapPlats.map((p, i) => (
-        <Block key={`g${i}`} pos={[-12, 0.5, p.z]} size={[3, 1, 3]} color={COLORS[i % COLORS.length]} />
+        <Block key={`g${i}`} pos={[-12, 0.5, p.z]} size={[3, 1, 3]} color={colorAt(i)} />
       ))}
       {gaps.map((g, i) => (
-        <Label key={`gl${i}`} pos={[-12, 2, gapPlats[i].z - 1.5 - g / 2]} text={`${g}u gap`} />
+        <Label key={`gl${i}`} pos={[-12, 2, gapPlats[i]!.z - 1.5 - g / 2]} text={`${g}u gap`} />
       ))}
       <Label pos={[-12, 3, 1.2]} text="GAP LADDER" />
 
       {/* Height ladder */}
       {heights.map((h, i) => (
         <group key={`h${i}`}>
-          <Block pos={[12, h / 2, -2 - i * 5]} size={[3, h, 3]} color={COLORS[(i + 2) % COLORS.length]} />
+          <Block pos={[12, h / 2, -2 - i * 5]} size={[3, h, 3]} color={colorAt(i + 2)} />
           <Label pos={[12, h + 0.8, -2 - i * 5]} text={`${h}u`} />
         </group>
       ))}
@@ -86,7 +87,7 @@ export function Level() {
         [-2, 6.5, -23],
         [4, 2.5, -26],
       ] as V3[]).map((p, i) => (
-        <Block key={`f${i}`} pos={p} size={[2.5, 0.4, 2.5]} color={COLORS[(i + 1) % COLORS.length]} />
+        <Block key={`f${i}`} pos={p} size={[2.5, 0.4, 2.5]} color={colorAt(i + 1)} />
       ))}
 
       {/* Tall wall */}

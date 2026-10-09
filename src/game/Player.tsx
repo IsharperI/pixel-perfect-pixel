@@ -48,7 +48,8 @@ export function Player() {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3));
     g.setDrawRange(0, 0);
-    return { geo: g, count: 0, acc: 0 };
+    const attr = g.getAttribute("position") as THREE.BufferAttribute;
+    return { geo: g, attr, count: 0, acc: 0 };
   }, []);
   const showTrail = useUI((s) => s.showTrail);
 
@@ -79,7 +80,7 @@ export function Player() {
   useFrame((_, rawDt) => {
     const b = body.current, c = collider.current;
     if (!b || !c) { return; }
-    (window as any).__f = ((window as any).__f ?? 0) + 1; try { step(b, c, rawDt); } catch (e) { if ((window as any).__f % 100 === 1) console.log("dbg err", String(e), (e as Error).stack?.slice(0, 300)); }
+    step(b, c, rawDt);
   });
   const step = (b: RapierRigidBody, c: RapierCollider, rawDt: number) => {
     const dt = Math.min(rawDt, 0.05);
@@ -106,9 +107,9 @@ export function Player() {
     const rate = (hasInput ? num(S, "acceleration") : num(S, "deceleration")) * airMul;
     const ex = tx - s.vel.x, ez = tz - s.vel.z;
     const el = Math.hypot(ex, ez);
-    const step = rate * dt;
-    if (el <= step) { s.vel.x = tx; s.vel.z = tz; }
-    else { s.vel.x += (ex / el) * step; s.vel.z += (ez / el) * step; }
+    const accelStep = rate * dt;
+    if (el <= accelStep) { s.vel.x = tx; s.vel.z = tz; }
+    else { s.vel.x += (ex / el) * accelStep; s.vel.z += (ez / el) * accelStep; }
 
     // ---- jump & gravity
     const { gravity, jumpVelocity } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
@@ -190,12 +191,12 @@ export function Player() {
       trail.acc += dt;
       if (trail.acc > 1 / 60 && trail.count < TRAIL_MAX) {
         trail.acc = 0;
-        const arr = trail.geo.attributes.position.array as Float32Array;
+        const arr = trail.attr.array as Float32Array;
         arr[trail.count * 3] = next.x;
         arr[trail.count * 3 + 1] = next.y - (HALF + RADIUS) + 0.05;
         arr[trail.count * 3 + 2] = next.z;
         trail.count++;
-        trail.geo.attributes.position.needsUpdate = true;
+        trail.attr.needsUpdate = true;
       }
     }
     trail.geo.setDrawRange(0, trail.count);
@@ -224,7 +225,7 @@ export function Player() {
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;
     liveStats.jumpVelocity = jumpVelocity;
-  });
+  };
 
   return (
     <>
