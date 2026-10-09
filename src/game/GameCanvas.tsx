@@ -7,6 +7,7 @@ import { Player } from "./Player";
 import { useInputListeners } from "./input";
 import { SettingsPanel } from "./SettingsPanel";
 import { DebugOverlay } from "./DebugOverlay";
+import { Tutorial } from "./TutorialOverlay";
 
 export function GameCanvas() {
   useInputListeners();
@@ -40,6 +41,7 @@ export function GameCanvas() {
       </Canvas>
       <DebugOverlay />
       <SettingsPanel />
+      <Tutorial />
     </div>
   );
 }

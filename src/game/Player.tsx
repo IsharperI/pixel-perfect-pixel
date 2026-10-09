@@ -6,6 +6,7 @@ import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./set
 import { updateFades } from "./fade";
 import { playJump, playLand, playFlap, playExhale } from "./sfx";
 import { input, readMove } from "./input";
+import { events } from "./events";
 
 export const SPAWN = new THREE.Vector3(0, 2, 6);
 const RADIUS = 0.45;
@@ -67,6 +68,8 @@ export function Player() {
     // ---- moves
     move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
     airJumpsUsed: 0,
+    groundedSince: 0, // when we last touched down (for spotting buffered jumps)
+    takeoffY: 0, peakY: 0, trackJump: false, // measuring plain jumps for the tutorial
     flapsUsed: 0, puff: 0, // float (Kirby) flaps used this airtime + puffed-up visual amount
     variableOk: true, // whether releasing jump early may cut this jump short
     wallTouchAt: -Infinity, wallNX: 0, wallNZ: 0, // last wall contact in the air + its outward direction
@@ -216,6 +219,9 @@ export function Player() {
     };
     const busyPounding = s.move === "stall" || s.move === "pound";
     if (buffered && (s.grounded || canCoyote) && !s.jumping) {
+      events.jumps++;
+      if (!s.grounded) events.coyoteJumps++; // jumped after walking off a ledge
+      else if (input.jumpPressedAt < s.groundedSince - 0.01) events.bufferedJumps++; // pressed before landing
       const speedNow = Math.hypot(s.vel.x, s.vel.z);
       if (bool(S, "longJump") && mv.crouchHeld && speedNow >= 0.4 * maxSpeed) {
         // LONG JUMP: launch along the current running direction, low and fast
@@ -223,9 +229,11 @@ export function Player() {
         s.vel.x = ldx * num(S, "longJumpSpeed"); s.vel.z = ldz * num(S, "longJumpSpeed");
         s.vel.y = launch(num(S, "longJumpHeight"));
         s.move = "long"; s.variableOk = false;
+        events.longJumps++; s.trackJump = false;
       } else {
         s.vel.y = jumpVelocity;
         s.move = "none"; s.variableOk = true;
+        const tp = b.translation(); s.takeoffY = s.peakY = tp.y; s.trackJump = true;
       }
       s.jumping = true;
       s.grounded = false;
@@ -241,6 +249,7 @@ export function Player() {
         s.facing = Math.atan2(s.wallNX, s.wallNZ);
         s.controlLockUntil = now + 0.2;
         s.move = "wall"; s.variableOk = false; s.jumping = true;
+        events.wallJumps++; s.trackJump = false;
         s.airJumpsUsed = 0; s.flapsUsed = 0; s.wallTouchAt = -Infinity;
         input.jumpPressedAt = -Infinity;
         archiveTrail();
@@ -248,6 +257,7 @@ export function Player() {
       } else if (bool(S, "doubleJump") && s.move !== "float" && s.airJumpsUsed < num(S, "airJumps")) {
         // AIR JUMP: fresh upward kick, and snap toward the stick direction
         s.airJumpsUsed++;
+        events.airJumps++; s.trackJump = false;
         s.vel.y = launch(num(S, "jumpHeight") * num(S, "doubleJumpHeight"));
         if (hasInput) {
           const sp = Math.max(Math.hypot(s.vel.x, s.vel.z), maxSpeed * 0.6);
@@ -261,6 +271,7 @@ export function Player() {
       } else if (bool(S, "float") && s.flapsUsed < num(S, "floatFlaps")) {
         // FLOAT FLAP (Kirby): puff up, and each press lifts you a little
         s.flapsUsed++;
+        events.flaps++; s.trackJump = false;
         s.move = "float"; s.variableOk = false; s.jumping = true;
         s.vel.y = Math.max(s.vel.y, num(S, "flapLift"));
         input.jumpPressedAt = -Infinity;
@@ -283,6 +294,7 @@ export function Player() {
     if (bool(S, "groundPound") && !s.grounded && !busyPounding && now - input.crouchPressedAt <= 0.25) {
       input.crouchPressedAt = -Infinity;
       s.move = "stall"; s.variableOk = false;
+      events.pounds++; s.trackJump = false;
       s.poundUntil = now + num(S, "poundStall");
       s.vel.set(0, 0, 0);
       s.flipStart = now; s.flipDur = Math.max(num(S, "poundStall"), 0.15);
@@ -335,6 +347,19 @@ export function Player() {
       s.move = "none";
     }
     s.grounded = groundedNow && s.vel.y <= 0;
+
+    // ---- tutorial measurements
+    if (!s.grounded) s.peakY = Math.max(s.peakY, next.y);
+    if (s.grounded && s.wasAirborne) {
+      s.groundedSince = now;
+      if (s.trackJump) {
+        const h = s.peakY - s.takeoffY, jh = num(S, "jumpHeight");
+        if (h < jh * 0.6) events.shortHops++;
+        else if (h > jh * 0.85) events.fullJumps++;
+        s.trackJump = false;
+      }
+    }
+    if (s.grounded) events.distance += Math.hypot(m.x, m.z);
 
     // ---- landing juice (ignore tiny drops like stepping down a ledge)
     if (s.grounded && s.wasAirborne && fallSpeed > 3) {

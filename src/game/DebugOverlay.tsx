@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { liveStats, useUI } from "./settings";
+import { useTutorial } from "./tutorial";
 
 export function DebugOverlay() {
   const { showDebug, showTrail, showGhost, toggle } = useUI();
@@ -16,6 +17,7 @@ export function DebugOverlay() {
         <button className="chip" data-on={showDebug} onClick={() => toggle("showDebug")}>Debug</button>
         <button className="chip" data-on={showTrail} onClick={() => toggle("showTrail")}>Trail</button>
         <button className="chip" data-on={showGhost} disabled={!showTrail} onClick={() => toggle("showGhost")} title="Show your previous jump arc, faded, to compare against the current one">Ghost</button>
+        <button className="chip" onClick={() => useTutorial.getState().reopen()} title="Open the guided tutorial">Tutorial</button>
       </div>
       {showDebug && (
         <div className="hud-card font-mono text-xs leading-relaxed">

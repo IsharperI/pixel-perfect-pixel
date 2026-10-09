@@ -1,4 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useHighlighted } from "./tutorial";
+import { events } from "./events";
 import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
 
 const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Juice"] as const;
@@ -74,7 +76,7 @@ function Presets({ onApply }: { onApply: (name: string) => void }) {
             className="preset-chip"
             data-on={active === p.name}
             title={p.description}
-            onClick={() => { load(presetValues(p)); onApply(p.name); }}
+            onClick={() => { load(presetValues(p)); events.presetLoads++; onApply(p.name); }}
           >
             {p.name}
           </button>
@@ -86,6 +88,9 @@ function Presets({ onApply }: { onApply: (name: string) => void }) {
 
 function Section({ title, defs }: { title: string; defs: SettingDef[] }) {
   const [open, setOpen] = useState(true);
+  const hl = useHighlighted();
+  const hasHighlight = defs.some((d) => hl.includes(d.key));
+  useEffect(() => { if (hasHighlight) setOpen(true); }, [hasHighlight]); // tutorial points here: make sure it's open
   return (
     <section className="mb-2 rounded-lg">
       <button className="section-head" onClick={() => setOpen(!open)} aria-expanded={open}>
@@ -106,11 +111,17 @@ function SettingRow({ def }: { def: SettingDef }) {
   });
   const set = useSettings((s) => s.set);
   const [help, setHelp] = useState(false);
+  const hl = useHighlighted();
+  const highlighted = hl.includes(def.key);
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hl[0] === def.key) rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [hl, def.key]);
   const isDefault = value === def.default;
   if (!parentOn) return null;
 
   return (
-    <div className="setting-row">
+    <div className="setting-row" ref={rowRef} data-highlight={highlighted}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <label htmlFor={def.key} className="text-sm font-medium">{def.label}</label>

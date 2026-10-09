@@ -148,5 +148,23 @@
   .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 2px; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); }
   .segmented button { font-size: .75rem; font-weight: 600; padding: .3rem .25rem; border-radius: .4rem; color: var(--muted-foreground); transition: all .15s; }
   .segmented button[data-on="true"] { background: var(--card); color: var(--foreground); box-shadow: 0 1px 2px oklch(0 0 0 / .15); }
+  .setting-row[data-highlight="true"] { background: color-mix(in oklch, var(--primary) 10%, var(--card)); box-shadow: inset 0 0 0 2px var(--primary); animation: hl-pulse 1.8s ease-in-out infinite; }
+  @keyframes hl-pulse { 50% { box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--primary) 35%, transparent); } }
+  .tut-backdrop { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 1rem; background: color-mix(in oklch, var(--foreground) 35%, transparent); backdrop-filter: blur(3px); }
+  .tut-welcome { width: min(440px, 100%); display: flex; flex-direction: column; gap: .75rem; padding: 1.5rem; border-radius: calc(var(--radius) + 6px); background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); box-shadow: var(--shadow-panel); }
+  .tut-primary { flex: 1; font-size: .85rem; font-weight: 700; padding: .6rem .9rem; border-radius: .6rem; background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-panel); transition: filter .15s; }
+  .tut-primary:hover { filter: brightness(1.08); }
+  .tut-card { position: absolute; left: 1rem; bottom: 1rem; z-index: 25; width: min(360px, calc(100% - 2rem)); display: flex; flex-direction: column; gap: .6rem; padding: 1rem 1.1rem 1rem; border-radius: calc(var(--radius) + 4px); background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); box-shadow: var(--shadow-panel); overflow: hidden; }
+  .tut-progress { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--track); }
+  .tut-progress span { display: block; height: 100%; background: var(--primary); transition: width .3s; }
+  .tut-close { width: 24px; height: 24px; border-radius: 999px; font-size: 1rem; line-height: 1; color: var(--muted-foreground); }
+  .tut-close:hover { background: var(--muted); color: var(--foreground); }
+  .tut-try { display: flex; gap: .5rem; align-items: flex-start; font-size: .8rem; line-height: 1.45; padding: .55rem .65rem; border-radius: .6rem; background: var(--secondary); border: 1px solid var(--border); transition: background .25s, border-color .25s; }
+  .tut-try[data-done="true"] { background: color-mix(in oklch, var(--accent) 16%, var(--card)); border-color: var(--accent); }
+  .tut-mark { flex: none; width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-size: .7rem; font-weight: 800; background: var(--card); border: 1px solid var(--border); }
+  .tut-try[data-done="true"] .tut-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-foreground); }
+  .tut-next { font-size: .8rem; font-weight: 700; padding: .5rem; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); color: var(--muted-foreground); transition: all .2s; }
+  .tut-next[data-ready="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+  .tool-btn:disabled { opacity: .4; pointer-events: none; }
   .tool-btn:hover { background: var(--foreground); color: var(--card); }
 }
