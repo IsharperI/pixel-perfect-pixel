@@ -121,8 +121,110 @@ export function playExhale(volume: number) {
   n.stop(t + 0.25);
 }
 
-/** A short tire-style screech for skids. `strength` 0–1 scales loudness and pitch with speed. */
-export function playSkid(volume: number, strength: number) {
+export type SkidStyle = "retro" | "scuff" | "screech";
+
+/** Skid sound in the chosen style. `strength` 0–1 scales it with speed. */
+export function playSkid(volume: number, strength: number, style: SkidStyle) {
+  if (style === "retro") return skidRetro(volume, strength);
+  if (style === "scuff") return skidScuff(volume, strength);
+  return skidScreech(volume, strength);
+}
+
+/** Wave-shaper curve that snaps the signal to a few levels, for a crunchy old-console sound. */
+function crushCurve(steps: number) {
+  const n = 1024, c = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    c[i] = Math.round(x * steps) / steps;
+  }
+  return c;
+}
+
+/**
+ * Retro brake: a short, gritty, stuttering "shhk" that slides down in pitch,
+ * in the style of 16-bit console skids. Original sound, built from scratch.
+ */
+function skidRetro(volume: number, strength: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  const t = a.currentTime;
+  const k = Math.min(Math.max(strength, 0), 1);
+  const dur = 0.22 + 0.12 * k;
+
+  // Stutter: a fast on/off gate gives the chattering, crunchy texture
+  const gate = a.createGain();
+  gate.gain.value = 0.5;
+  const lfo = a.createOscillator();
+  lfo.type = "square";
+  lfo.frequency.setValueAtTime(34, t);
+  lfo.frequency.linearRampToValueAtTime(22, t + dur);
+  const lfoDepth = a.createGain();
+  lfoDepth.gain.value = 0.5;
+  lfo.connect(lfoDepth).connect(gate.gain);
+
+  // Crunch the combined signal down to a few levels
+  const crush = a.createWaveShaper();
+  crush.curve = crushCurve(6);
+
+  // Envelope: hits instantly, fades out
+  const env = a.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime((0.28 + 0.22 * k) * volume, t + 0.008);
+  env.gain.setValueAtTime((0.28 + 0.22 * k) * volume, t + dur * 0.55);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+  // Tone: square wave sliding down
+  const o = a.createOscillator();
+  o.type = "square";
+  o.frequency.setValueAtTime(820 + 380 * k, t);
+  o.frequency.exponentialRampToValueAtTime(260 + 80 * k, t + dur);
+  const og = a.createGain();
+  og.gain.value = 0.45;
+
+  // Grit: bright noise riding on top
+  const n = a.createBufferSource();
+  n.buffer = noiseBuffer(a);
+  n.loop = true;
+  const hp = a.createBiquadFilter();
+  hp.type = "highpass";
+  hp.frequency.setValueAtTime(2600, t);
+  hp.frequency.exponentialRampToValueAtTime(1200, t + dur);
+  const ng = a.createGain();
+  ng.gain.value = 0.6;
+
+  o.connect(og).connect(gate);
+  n.connect(hp).connect(ng).connect(gate);
+  gate.connect(crush).connect(env).connect(a.destination);
+  o.start(t); n.start(t); lfo.start(t);
+  o.stop(t + dur + 0.05); n.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+}
+
+/** Scuff: a short, soft shoe-scrape. */
+function skidScuff(volume: number, strength: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  const t = a.currentTime;
+  const k = Math.min(Math.max(strength, 0), 1);
+  const dur = 0.16 + 0.1 * k;
+  const n = a.createBufferSource();
+  n.buffer = noiseBuffer(a);
+  n.loop = true;
+  const f = a.createBiquadFilter();
+  f.type = "bandpass";
+  f.Q.value = 1.2;
+  f.frequency.setValueAtTime(900 + 500 * k, t);
+  f.frequency.exponentialRampToValueAtTime(500 + 200 * k, t + dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime((0.2 + 0.25 * k) * volume, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  n.connect(f).connect(g).connect(a.destination);
+  n.start(t);
+  n.stop(t + dur + 0.05);
+}
+
+/** Screech: a short tire-style squeal. */
+function skidScreech(volume: number, strength: number) {
   const a = audio();
   if (!a || volume <= 0) return;
   const t = a.currentTime;

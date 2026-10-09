@@ -4,7 +4,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type Rapie
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand, playFlap, playExhale, playSkid } from "./sfx";
+import { playJump, playLand, playFlap, playExhale, playSkid, type SkidStyle } from "./sfx";
 import { input, readMove } from "./input";
 import { events } from "./events";
 
@@ -444,7 +444,7 @@ export function Player() {
       const strength = Math.min(hs / 20, 1);
       if (skid && !s.skidding && now - s.lastSkidSoundAt > 0.35) {
         s.lastSkidSoundAt = now;
-        if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength);
+        if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength, str(S, "skidSound") as SkidStyle);
       }
       if (skid && bool(S, "dust")) {
         // A steady stream of small puffs from the feet, faster the quicker you're going
