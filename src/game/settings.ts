@@ -33,8 +33,9 @@ export const SETTINGS: SettingDef[] = [
 
   { key: "cameraDistance", label: "Distance", category: "Camera", kind: "number", min: 2, max: 25, step: 0.5, unit: "u", default: 8, description: "How far the camera sits from the player." },
   { key: "cameraHeight", label: "Height", category: "Camera", kind: "number", min: 0, max: 15, step: 0.25, unit: "u", default: 3, description: "How high above the player the camera sits." },
+  { key: "leashSwing", label: "Leash Swing", category: "Camera", kind: "number", min: 0, max: 1, step: 0.05, default: 1, description: "The camera acts like it's tied to the player with a rope, so turning and running sideways pull it around (like Jak and Daxter or Mario 64). 0 never swings, 1 is the full rope." },
   { key: "followSmoothing", label: "Follow Smoothing", category: "Camera", kind: "number", min: 0, max: 1, step: 0.01, unit: "s", default: 0.15, description: "How much the camera lags behind the player. 0 is locked on." },
-  { key: "autoRotate", label: "Auto-Rotate Behind Player", category: "Camera", kind: "boolean", default: true, description: "The camera slowly swings around to sit behind the direction you're running." },
+  { key: "autoRotate", label: "Auto-Rotate Behind Player", category: "Camera", kind: "boolean", default: true, description: "An extra pull that slowly swings the camera behind you while you run away from it, on top of the leash." },
   { key: "autoRotateSpeed", label: "Auto-Rotate Speed", category: "Camera", kind: "number", min: 0.1, max: 10, step: 0.1, default: 2, description: "How quickly the camera swings behind the player.", dependsOn: "autoRotate" },
 ];
 

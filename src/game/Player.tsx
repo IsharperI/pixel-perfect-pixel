@@ -29,6 +29,7 @@ export function Player() {
     camYaw: 0,
     camPitch: 0,
     camTarget: SPAWN.clone(),
+    lastPos: SPAWN.clone(), // player position last frame, for the leash camera
     wasAirborne: false,
   });
 
@@ -154,6 +155,7 @@ export function Player() {
       b.setTranslation(SPAWN, true);
       s.vel.set(0, 0, 0);
       s.camTarget.copy(SPAWN);
+      s.lastPos.copy(SPAWN);
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
 
@@ -203,6 +205,25 @@ export function Player() {
     s.wasAirborne = airborne;
 
     // ---- camera
+    const dist = num(S, "cameraDistance");
+
+    // Leash camera (Jak and Daxter / Mario 64 style): the camera behaves as if
+    // it's tied to the player by a rope of length `dist`. We take where the
+    // camera sat last frame, see which direction it now lies from the player,
+    // and re-place it at rope length along that direction. Running forward drags
+    // it behind; turning or strafing pulls it around; running toward it just
+    // pushes it straight back, so there's no spin.
+    const leash = num(S, "leashSwing");
+    if (leash > 0) {
+      const camX = s.lastPos.x + Math.sin(s.camYaw) * dist;
+      const camZ = s.lastPos.z + Math.cos(s.camYaw) * dist;
+      const ox = camX - next.x, oz = camZ - next.z;
+      if (Math.hypot(ox, oz) > 0.001) {
+        s.camYaw += angleDiff(s.camYaw, Math.atan2(ox, oz)) * leash;
+      }
+    }
+    s.lastPos.set(next.x, next.y, next.z);
+
     if (bool(S, "autoRotate") && hs > 0.5 && now - input.lastOrbitAt > 1) {
       // Only swing behind the player when they run AWAY from the camera.
       // Running toward the camera or sideways would otherwise make the camera
@@ -218,7 +239,6 @@ export function Player() {
     const smooth = num(S, "followSmoothing");
     const fk = smooth <= 0.001 ? 1 : 1 - Math.exp(-dt / smooth);
     s.camTarget.lerp(tmp.look.set(next.x, next.y, next.z), fk);
-    const dist = num(S, "cameraDistance");
     const height = num(S, "cameraHeight") + s.camPitch * dist;
     camera.position.set(
       s.camTarget.x + Math.sin(s.camYaw) * dist,
