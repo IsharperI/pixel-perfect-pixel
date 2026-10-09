@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
 
-const CATEGORIES = ["Movement", "Jump", "Camera", "Juice"] as const;
+const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Juice"] as const;
 
 export function SettingsPanel() {
   const open = useUI((s) => s.panelOpen);

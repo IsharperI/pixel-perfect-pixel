@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type SettingDef = {
   key: string;
   label: string;
-  category: "Movement" | "Jump" | "Camera" | "Juice";
+  category: "Movement" | "Jump" | "Moves" | "Camera" | "Juice";
   kind: "number" | "boolean" | "choice";
   /** For kind "choice": the options shown as a segmented switch */
   options?: { value: string; label: string }[];
@@ -33,6 +33,20 @@ export const SETTINGS: SettingDef[] = [
   { key: "maxFallSpeed", label: "Max Fall Speed", category: "Jump", kind: "number", min: 2, max: 80, step: 1, unit: "u/s", default: 25, description: "The terminal velocity — falling never gets faster than this." },
   { key: "coyoteTime", label: "Coyote Time", category: "Jump", kind: "number", min: 0, max: 0.5, step: 0.01, unit: "s", default: 0.1, description: "Grace period where you can still jump after walking off a ledge." },
   { key: "jumpBuffer", label: "Jump Buffer", category: "Jump", kind: "number", min: 0, max: 0.5, step: 0.01, unit: "s", default: 0.1, description: "Pressing jump this long before landing still counts as a jump." },
+
+  { key: "doubleJump", label: "Double Jump", category: "Moves", kind: "boolean", default: false, description: "Press jump again in mid-air for an extra jump, and steer toward a new direction as you do (like Jak)." },
+  { key: "airJumps", label: "Air Jumps", category: "Moves", kind: "number", min: 1, max: 3, step: 1, default: 1, description: "How many extra jumps you get before touching the ground. 2 makes a triple jump.", dependsOn: "doubleJump" },
+  { key: "doubleJumpHeight", label: "Air Jump Height", category: "Moves", kind: "number", min: 0.3, max: 1.5, step: 0.05, unit: "×", default: 0.8, description: "Height of each air jump, compared to a normal jump.", dependsOn: "doubleJump" },
+  { key: "longJump", label: "Long Jump", category: "Moves", kind: "boolean", default: false, description: "While running, hold Shift and press jump for a long, low, fast leap (like Mario 64). Holding Shift on the ground makes you crouch and slide to a stop." },
+  { key: "longJumpSpeed", label: "Long Jump Speed", category: "Moves", kind: "number", min: 8, max: 30, step: 0.5, unit: "u/s", default: 16, description: "How fast you fly forward during a long jump.", dependsOn: "longJump" },
+  { key: "longJumpHeight", label: "Long Jump Height", category: "Moves", kind: "number", min: 0.3, max: 4, step: 0.1, unit: "u", default: 1.4, description: "How high a long jump arcs. Lower is flatter and faster to land.", dependsOn: "longJump" },
+  { key: "groundPound", label: "Ground Pound", category: "Moves", kind: "boolean", default: false, description: "Press Shift in mid-air to flip, hang for a moment, then slam straight down." },
+  { key: "poundStall", label: "Hang Time", category: "Moves", kind: "number", min: 0, max: 0.6, step: 0.02, unit: "s", default: 0.25, description: "How long you hang in the air before slamming down.", dependsOn: "groundPound" },
+  { key: "poundSpeed", label: "Slam Speed", category: "Moves", kind: "number", min: 10, max: 60, step: 1, unit: "u/s", default: 35, description: "How fast you drop during the slam.", dependsOn: "groundPound" },
+  { key: "wallJump", label: "Wall Jump", category: "Moves", kind: "boolean", default: false, description: "Jump into a wall in mid-air, then press jump again as you hit it to kick off the other way (like Mario 64). Try the tall wall." },
+  { key: "wallJumpHeight", label: "Wall Jump Height", category: "Moves", kind: "number", min: 0.5, max: 6, step: 0.1, unit: "u", default: 3, description: "How high a wall kick sends you.", dependsOn: "wallJump" },
+  { key: "wallJumpPush", label: "Wall Push", category: "Moves", kind: "number", min: 2, max: 20, step: 0.5, unit: "u/s", default: 9, description: "How hard a wall kick pushes you away from the wall.", dependsOn: "wallJump" },
+  { key: "wallJumpWindow", label: "Wall Jump Window", category: "Moves", kind: "number", min: 0.05, max: 0.5, step: 0.01, unit: "s", default: 0.2, description: "How long after touching a wall you can still kick off it. Mario 64 was famously strict.", dependsOn: "wallJump" },
 
   { key: "cameraDistance", label: "Distance", category: "Camera", kind: "number", min: 2, max: 25, step: 0.5, unit: "u", default: 8, description: "How far the camera sits from the player." },
   { key: "cameraHeight", label: "Height", category: "Camera", kind: "number", min: 0, max: 15, step: 0.25, unit: "u", default: 3, description: "How high above the player the camera sits." },
@@ -71,6 +85,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.08, jumpBuffer: 0.1,
       cameraDistance: 9, cameraHeight: 3.5, followSmoothing: 0.22, leashSwing: 1, autoRotate: true, autoRotateSpeed: 1.5,
       cameraObstruction: "push", playerSilhouette: false,
+      longJump: true, groundPound: true, wallJump: true, wallJumpWindow: 0.1,
     },
   },
   {
@@ -81,6 +96,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 2.6, timeToApex: 0.34, fallGravityMultiplier: 1.8, airControl: 0.75, maxFallSpeed: 28,
       coyoteTime: 0.12, jumpBuffer: 0.12,
       cameraDistance: 8, cameraHeight: 3, followSmoothing: 0.12, leashSwing: 1, autoRotate: true, autoRotateSpeed: 2.5,
+      doubleJump: true, doubleJumpHeight: 0.85, longJump: true, longJumpSpeed: 14, longJumpHeight: 1.6,
     },
   },
   {
@@ -91,6 +107,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 4, timeToApex: 0.8, fallGravityMultiplier: 1, airControl: 0.9, maxFallSpeed: 10,
       coyoteTime: 0.15, jumpBuffer: 0.15,
       followSmoothing: 0.35,
+      doubleJump: true, airJumps: 2, doubleJumpHeight: 0.7,
     },
   },
   {
@@ -101,6 +118,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 2.8, timeToApex: 0.28, fallGravityMultiplier: 2.6, airControl: 1, maxFallSpeed: 40,
       coyoteTime: 0.1, jumpBuffer: 0.12,
       followSmoothing: 0.06,
+      doubleJump: true, wallJump: true, wallJumpWindow: 0.25,
     },
   },
   {
@@ -111,6 +129,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 1.6, timeToApex: 0.38, fallGravityMultiplier: 1.3, variableJumpHeight: false, airControl: 0.15,
       coyoteTime: 0.03, jumpBuffer: 0.05,
       followSmoothing: 0.3,
+      groundPound: true, poundStall: 0.1, poundSpeed: 50,
     },
   },
 ];
@@ -181,4 +200,4 @@ export const useUI = create<UI>((set) => ({
 }));
 
 /** Mutable live stats written by the player each frame, polled by the HUD. */
-export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0 };
+export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0, move: "—" };

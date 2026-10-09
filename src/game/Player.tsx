@@ -19,6 +19,7 @@ export function Player() {
   const body = useRef<RapierRigidBody>(null);
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
+  const tumble = useRef<THREE.Group>(null); // centred group for flips and leans
   const shadow = useRef<THREE.Mesh>(null);
   const silhouette = useRef<THREE.Mesh>(null);
   const blocked = useMemo(() => new Set<string>(), []);
@@ -63,6 +64,14 @@ export function Player() {
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
     wasAirborne: false,
+    // ---- moves
+    move: "none" as "none" | "long" | "stall" | "pound" | "wall",
+    airJumpsUsed: 0,
+    variableOk: true, // whether releasing jump early may cut this jump short
+    wallTouchAt: -Infinity, wallNX: 0, wallNZ: 0, // last wall contact in the air + its outward direction
+    controlLockUntil: -Infinity, // briefly ignore steering after a wall kick
+    poundUntil: 0, // end of the ground-pound hang
+    flipStart: -Infinity, flipDur: 0.35, lean: 0, // visual cues
   });
 
   // The character controller is created and freed by the same effect, so if
@@ -160,35 +169,116 @@ export function Player() {
     const dz = fz * mv.y + rz * mv.x;
     const hasInput = Math.hypot(dx, dz) > 0.01;
     const maxSpeed = num(S, "maxSpeed");
-    const tx = dx * maxSpeed, tz = dz * maxSpeed;
-    const airMul = s.grounded ? 1 : num(S, "airControl");
-    const rate = (hasInput ? num(S, "acceleration") : num(S, "deceleration")) * airMul;
-    const ex = tx - s.vel.x, ez = tz - s.vel.z;
-    const el = Math.hypot(ex, ez);
-    const accelStep = rate * dt;
-    if (el <= accelStep) { s.vel.x = tx; s.vel.z = tz; }
-    else { s.vel.x += (ex / el) * accelStep; s.vel.z += (ez / el) * accelStep; }
+    // Crouch (only matters when Long Jump is on): slide to a stop on the ground
+    const crouching = s.grounded && mv.crouchHeld && bool(S, "longJump");
+    if (s.move === "stall" || s.move === "pound") {
+      // Ground pound: no sideways movement at all
+      s.vel.x = 0; s.vel.z = 0;
+    } else if (s.move === "long") {
+      // Long jump: keep the launch speed; input only steers the direction gently
+      const sp = Math.hypot(s.vel.x, s.vel.z);
+      if (hasInput && sp > 0.01) {
+        const cur = Math.atan2(s.vel.x, s.vel.z);
+        const turn = THREE.MathUtils.clamp(angleDiff(cur, Math.atan2(dx, dz)), -1.5 * dt, 1.5 * dt);
+        s.vel.x = Math.sin(cur + turn) * sp; s.vel.z = Math.cos(cur + turn) * sp;
+      }
+    } else {
+      const tx = crouching ? 0 : dx * maxSpeed, tz = crouching ? 0 : dz * maxSpeed;
+      const airMul = s.grounded ? 1 : now < s.controlLockUntil ? 0 : num(S, "airControl");
+      const rate = crouching ? num(S, "deceleration") * 0.2 // slow slide, leaves time to long jump
+        : (hasInput ? num(S, "acceleration") : num(S, "deceleration")) * airMul;
+      const ex = tx - s.vel.x, ez = tz - s.vel.z;
+      const el = Math.hypot(ex, ez);
+      const accelStep = rate * dt;
+      if (el <= accelStep) { s.vel.x = tx; s.vel.z = tz; }
+      else { s.vel.x += (ex / el) * accelStep; s.vel.z += (ez / el) * accelStep; }
+    }
+
+    // A Shift press made while standing is a crouch, never a ground pound. Clear
+    // it here, BEFORE any jump this frame makes us airborne, so crouch-then-jump
+    // (a long jump) can't also trigger a pound.
+    if (s.grounded) input.crouchPressedAt = -Infinity;
 
     // ---- jump & gravity
     const { gravity, jumpVelocity } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
     const canCoyote = now - s.lastGroundedAt <= num(S, "coyoteTime");
     const buffered = now - input.jumpPressedAt <= Math.max(num(S, "jumpBuffer"), dt);
+    /** Velocity needed to rise `h` units under the current upward gravity. */
+    const launch = (h: number) => Math.sqrt(2 * gravity * Math.max(h, 0));
+    /** Shared juice for any take-off: stretch pop, dust puff, sound. */
+    const takeoffJuice = (puff: number) => {
+      s.sqV += 7 * num(S, "squashStretch");
+      if (bool(S, "dust") && puff > 0) { const pp = b.translation(); spawnDust(pp.x, pp.y - (HALF + RADIUS) + 0.08, pp.z, puff, 1.6, 0.18); }
+      if (bool(S, "sounds")) playJump(num(S, "soundVolume"));
+    };
+    const busyPounding = s.move === "stall" || s.move === "pound";
     if (buffered && (s.grounded || canCoyote) && !s.jumping) {
-      s.vel.y = jumpVelocity;
+      const speedNow = Math.hypot(s.vel.x, s.vel.z);
+      if (bool(S, "longJump") && mv.crouchHeld && speedNow >= 0.4 * maxSpeed) {
+        // LONG JUMP: launch along the current running direction, low and fast
+        const ldx = s.vel.x / speedNow, ldz = s.vel.z / speedNow;
+        s.vel.x = ldx * num(S, "longJumpSpeed"); s.vel.z = ldz * num(S, "longJumpSpeed");
+        s.vel.y = launch(num(S, "longJumpHeight"));
+        s.move = "long"; s.variableOk = false;
+      } else {
+        s.vel.y = jumpVelocity;
+        s.move = "none"; s.variableOk = true;
+      }
       s.jumping = true;
       s.grounded = false;
       s.lastGroundedAt = -Infinity;
       input.jumpPressedAt = -Infinity;
       archiveTrail(); // fresh arc; previous one becomes the ghost
-      // Juice: stretch pop, dust, sound
-      s.sqV += 7 * num(S, "squashStretch");
-      if (bool(S, "dust")) { const pp = b.translation(); spawnDust(pp.x, pp.y - (HALF + RADIUS) + 0.08, pp.z, 6, 1.6, 0.18); }
-      if (bool(S, "sounds")) playJump(num(S, "soundVolume"));
+      takeoffJuice(6);
+    } else if (buffered && !s.grounded && !busyPounding) {
+      if (bool(S, "wallJump") && now - s.wallTouchAt <= num(S, "wallJumpWindow")) {
+        // WALL JUMP: kick away from the wall, face away from it, refresh air jumps
+        s.vel.x = s.wallNX * num(S, "wallJumpPush"); s.vel.z = s.wallNZ * num(S, "wallJumpPush");
+        s.vel.y = launch(num(S, "wallJumpHeight"));
+        s.facing = Math.atan2(s.wallNX, s.wallNZ);
+        s.controlLockUntil = now + 0.2;
+        s.move = "wall"; s.variableOk = false; s.jumping = true;
+        s.airJumpsUsed = 0; s.wallTouchAt = -Infinity;
+        input.jumpPressedAt = -Infinity;
+        archiveTrail();
+        takeoffJuice(4);
+      } else if (bool(S, "doubleJump") && s.airJumpsUsed < num(S, "airJumps")) {
+        // AIR JUMP: fresh upward kick, and snap toward the stick direction
+        s.airJumpsUsed++;
+        s.vel.y = launch(num(S, "jumpHeight") * num(S, "doubleJumpHeight"));
+        if (hasInput) {
+          const sp = Math.max(Math.hypot(s.vel.x, s.vel.z), maxSpeed * 0.6);
+          const il = Math.hypot(dx, dz);
+          s.vel.x = (dx / il) * sp; s.vel.z = (dz / il) * sp;
+        }
+        s.move = "none"; s.variableOk = true; s.jumping = true;
+        s.flipStart = now; s.flipDur = 0.35;
+        input.jumpPressedAt = -Infinity;
+        takeoffJuice(5);
+      }
     }
-    let g = gravity;
-    if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
-    else if (s.vel.y > 0 && bool(S, "variableJumpHeight") && !mv.jumpHeld && s.jumping) g *= num(S, "fallGravityMultiplier") * 1.5;
-    s.vel.y = Math.max(s.vel.y - g * dt, -num(S, "maxFallSpeed"));
+
+    // GROUND POUND: Shift in mid-air → flip and hang, then slam
+    if (bool(S, "groundPound") && !s.grounded && !busyPounding && now - input.crouchPressedAt <= 0.25) {
+      input.crouchPressedAt = -Infinity;
+      s.move = "stall"; s.variableOk = false;
+      s.poundUntil = now + num(S, "poundStall");
+      s.vel.set(0, 0, 0);
+      s.flipStart = now; s.flipDur = Math.max(num(S, "poundStall"), 0.15);
+    }
+
+    if (s.move === "stall") {
+      s.vel.y = 0;
+      if (now >= s.poundUntil) s.move = "pound";
+    }
+    if (s.move === "pound") {
+      s.vel.y = -num(S, "poundSpeed");
+    } else if (s.move !== "stall") {
+      let g = gravity;
+      if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
+      else if (s.vel.y > 0 && bool(S, "variableJumpHeight") && s.variableOk && !mv.jumpHeld && s.jumping) g *= num(S, "fallGravityMultiplier") * 1.5;
+      s.vel.y = Math.max(s.vel.y - g * dt, -num(S, "maxFallSpeed"));
+    }
 
     const fallSpeed = Math.max(0, -s.vel.y); // before collision zeroes it, for landing effects
 
@@ -199,18 +289,31 @@ export function Player() {
     const p = b.translation();
     const next = { x: p.x + m.x, y: p.y + m.y, z: p.z + m.z };
     const groundedNow = controller.computedGrounded();
+    // Remember touching a wall in mid-air (near-vertical surface) for wall jumps
+    if (!groundedNow) {
+      for (let i = 0; i < controller.numComputedCollisions(); i++) {
+        const col = controller.computedCollision(i);
+        if (col && Math.abs(col.normal1.y) < 0.3) {
+          const nl = Math.hypot(col.normal1.x, col.normal1.z) || 1;
+          s.wallTouchAt = now; s.wallNX = col.normal1.x / nl; s.wallNZ = col.normal1.z / nl;
+        }
+      }
+    }
     if (dt > 0 && m.y > tmp.v.y + 1e-4 && s.vel.y < 0) s.vel.y = 0; // landed / blocked below
     if (dt > 0 && s.vel.y > 0 && m.y < tmp.v.y - 1e-4) s.vel.y = 0; // bonked ceiling
+    const wasPounding = s.move === "pound";
     if (groundedNow && s.vel.y <= 0) {
       s.vel.y = 0;
       s.jumping = false;
       s.lastGroundedAt = now;
+      s.airJumpsUsed = 0;
+      s.move = "none";
     }
     s.grounded = groundedNow && s.vel.y <= 0;
 
     // ---- landing juice (ignore tiny drops like stepping down a ledge)
     if (s.grounded && s.wasAirborne && fallSpeed > 3) {
-      const strength = Math.min(fallSpeed / 25, 1);
+      const strength = wasPounding ? 1 : Math.min(fallSpeed / 25, 1);
       s.sqV -= fallSpeed * 0.55 * num(S, "squashStretch");
       s.bumpV -= fallSpeed * 0.11 * num(S, "landingBump");
       if (bool(S, "dust")) spawnDust(next.x, next.y - (HALF + RADIUS) + 0.08, next.z, Math.round(10 + 10 * strength), 3 + 4 * strength, 0.16 + 0.12 * strength);
@@ -228,12 +331,16 @@ export function Player() {
       s.vel.set(0, 0, 0);
       s.camTarget.copy(SPAWN);
       s.lastPos.copy(SPAWN);
+      s.move = "none"; s.airJumpsUsed = 0;
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
 
     // ---- facing
     const hs = Math.hypot(s.vel.x, s.vel.z);
-    if (hasInput && hs > 0.1) {
+    if ((s.move === "long" || s.move === "wall") && hs > 0.1) {
+      // Mid long jump / wall kick: face where you're flying
+      s.facing += angleDiff(s.facing, Math.atan2(s.vel.x, s.vel.z)) * (1 - Math.exp(-20 * dt));
+    } else if (hasInput && hs > 0.1 && s.move === "none") {
       const want = Math.atan2(dx, dz);
       s.facing += angleDiff(s.facing, want) * (1 - Math.exp(-num(S, "turnSpeed") * dt));
     }
@@ -242,12 +349,21 @@ export function Player() {
       // Squash & stretch: a spring pulled toward "stretched along the direction
       // of travel" in the air and "normal" on the ground, kicked by jumps/landings.
       const amt = num(S, "squashStretch");
-      const want = s.grounded ? 0 : THREE.MathUtils.clamp(Math.abs(s.vel.y) * 0.012, 0, 0.2) * amt;
+      const want = crouching ? -0.3 // crouch
+        : s.grounded ? 0 : THREE.MathUtils.clamp(Math.abs(s.vel.y) * 0.012, 0, 0.2) * amt;
       s.sqV += ((want - s.sq) * 320 - s.sqV * 16) * dt;
       s.sq += s.sqV * dt;
       const sy = THREE.MathUtils.clamp(1 + s.sq, 0.55, 1.6);
       const sxz = 1 / Math.sqrt(sy); // keep volume roughly constant
       visual.current.scale.set(sxz, sy, sxz);
+    }
+    if (tumble.current) {
+      // Flip (air jump / ground pound) + forward lean (long jump), around the body's centre
+      const ft = (now - s.flipStart) / s.flipDur;
+      const flip = ft >= 0 && ft < 1 ? Math.PI * 2 * (1 - (1 - ft) * (1 - ft)) : 0;
+      const leanWant = s.move === "long" ? 1.0 : 0;
+      s.lean += (leanWant - s.lean) * (1 - Math.exp(-12 * dt));
+      tumble.current.rotation.x = flip + s.lean;
     }
 
     // ---- dust particles
@@ -401,6 +517,7 @@ export function Player() {
     if (silhouette.current) silhouette.current.visible = bool(S, "playerSilhouette");
 
     liveStats.speed = hs;
+    liveStats.move = s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;
@@ -412,7 +529,7 @@ export function Player() {
       <RigidBody ref={body} type="kinematicPosition" colliders={false} position={SPAWN.toArray()} enabledRotations={[false, false, false]}>
         <CapsuleCollider ref={collider} args={[HALF, RADIUS]} />
         <group ref={visual} position={[0, -(HALF + RADIUS), 0]}>
-          <group position={[0, HALF + RADIUS, 0]}>
+          <group ref={tumble} position={[0, HALF + RADIUS, 0]}>
             <mesh castShadow>
               <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
               <meshStandardMaterial color="#ff7a59" roughness={0.45} />

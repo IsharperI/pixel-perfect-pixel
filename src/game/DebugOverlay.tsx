@@ -22,12 +22,13 @@ export function DebugOverlay() {
           <Row k="speed" v={`${s.speed.toFixed(2)} u/s`} />
           <Row k="vertical" v={`${s.vy.toFixed(2)} u/s`} />
           <Row k="grounded" v={s.grounded ? "yes" : "no"} hl={s.grounded} />
+          <Row k="move" v={s.move} hl={s.move !== "—"} />
           <Row k="gravity" v={`${s.gravity.toFixed(1)} u/s²`} />
           <Row k="jump vel" v={`${s.jumpVelocity.toFixed(1)} u/s`} />
         </div>
       )}
       <div className="hud-card text-xs text-muted-foreground">
-        <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · drag to orbit · <kbd>T</kbd> settings
+        <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings
       </div>
     </div>
   );

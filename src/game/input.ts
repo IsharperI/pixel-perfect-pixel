@@ -4,18 +4,20 @@ import { useUI } from "./settings";
 export const input = {
   keys: new Set<string>(),
   jumpPressedAt: -Infinity, // performance.now() seconds of last jump press
+  crouchPressedAt: -Infinity, // same, for the crouch button (ground pound trigger)
   orbitDX: 0,
   orbitDY: 0,
   lastOrbitAt: -Infinity,
 };
 
-const MOVE = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"];
+const MOVE = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "ShiftLeft", "ShiftRight"];
 
 export function readMove() {
   const k = input.keys;
   let x = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
   let y = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
   let jumpHeld = k.has("Space");
+  let crouchHeld = k.has("ShiftLeft") || k.has("ShiftRight");
   let camX = 0, camY = 0;
   const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : [];
   for (const p of pads) {
@@ -29,13 +31,19 @@ export function readMove() {
     if (b && !padJumpWas) input.jumpPressedAt = performance.now() / 1000;
     padJumpWas = b;
     jumpHeld ||= b;
+    // Crouch: B button or left trigger
+    const cr = (p.buttons[1]?.pressed ?? false) || (p.buttons[6]?.pressed ?? false);
+    if (cr && !padCrouchWas) input.crouchPressedAt = performance.now() / 1000;
+    padCrouchWas = cr;
+    crouchHeld ||= cr;
     break;
   }
   const len = Math.hypot(x, y);
   if (len > 1) { x /= len; y /= len; }
-  return { x, y, jumpHeld, camX, camY };
+  return { x, y, jumpHeld, crouchHeld, camX, camY };
 }
 let padJumpWas = false;
+let padCrouchWas = false;
 
 export function useInputListeners() {
   useEffect(() => {
@@ -51,6 +59,7 @@ export function useInputListeners() {
         (document.activeElement as HTMLElement | null)?.blur?.();
         e.preventDefault();
         if (e.code === "Space" && !e.repeat) input.jumpPressedAt = performance.now() / 1000;
+        if ((e.code === "ShiftLeft" || e.code === "ShiftRight") && !e.repeat) input.crouchPressedAt = performance.now() / 1000;
         input.keys.add(e.code);
       }
     };
