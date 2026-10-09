@@ -35,6 +35,7 @@ function noiseBuffer(a: AudioContext) {
 export function playJump(volume: number) {
   const a = audio();
   if (!a || volume <= 0) return;
+  if (playCustom("jump", 0.6 * volume)) return;
   const t = a.currentTime;
   const o = a.createOscillator();
   const g = a.createGain();
@@ -53,6 +54,7 @@ export function playJump(volume: number) {
 export function playLand(volume: number, strength: number) {
   const a = audio();
   if (!a || volume <= 0) return;
+  if (playCustom("land", (0.35 + 0.5 * Math.min(Math.max(strength, 0), 1)) * volume)) return;
   const t = a.currentTime;
   const k = Math.min(Math.max(strength, 0), 1);
 
@@ -88,6 +90,7 @@ export function playLand(volume: number, strength: number) {
 export function playFlap(volume: number) {
   const a = audio();
   if (!a || volume <= 0) return;
+  if (playCustom("flap", 0.5 * volume)) return;
   const t = a.currentTime;
   const o = a.createOscillator();
   const g = a.createGain();
@@ -106,6 +109,7 @@ export function playFlap(volume: number) {
 export function playExhale(volume: number) {
   const a = audio();
   if (!a || volume <= 0) return;
+  if (playCustom("exhale", 0.5 * volume)) return;
   const t = a.currentTime;
   const n = a.createBufferSource();
   n.buffer = noiseBuffer(a);
@@ -122,49 +126,54 @@ export function playExhale(volume: number) {
   n.stop(t + 0.25);
 }
 
-// ---- Recorded sounds (files in public/sounds/) ----------------------------
-const SAMPLE_URLS = { skid: `${import.meta.env.BASE_URL}sounds/skid.mp3` };
-const samples: Partial<Record<keyof typeof SAMPLE_URLS, AudioBuffer>> = {};
+// ---- Custom sound files ----------------------------------------------------
+// Any audio file dropped into src/game/sounds/ named after a sound (jump, land,
+// skid, flap, exhale) replaces the generated version. Found automatically at
+// build time, so there's nothing to register. See src/game/sounds/README.md.
+export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale";
+const FILES = import.meta.glob("./sounds/*.{mp3,ogg,wav,m4a}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
+const CUSTOM_URLS: Partial<Record<SoundName, string>> = {};
+for (const [path, url] of Object.entries(FILES)) {
+  const name = path.split("/").pop()!.replace(/\.[^.]+$/, "").toLowerCase() as SoundName;
+  CUSTOM_URLS[name] = url;
+}
+const samples: Partial<Record<SoundName, AudioBuffer>> = {};
 let samplesRequested = false;
 
-/** Fetch and decode the recorded sounds once, in the background. */
+/** Fetch and decode any custom sound files once, in the background. */
 function preloadSamples(a: AudioContext) {
   if (samplesRequested) return;
   samplesRequested = true;
-  for (const [name, url] of Object.entries(SAMPLE_URLS) as [keyof typeof SAMPLE_URLS, string][]) {
+  for (const [name, url] of Object.entries(CUSTOM_URLS) as [SoundName, string][]) {
     fetch(url)
       .then((r) => r.arrayBuffer())
       .then((data) => a.decodeAudioData(data))
       .then((buf) => { samples[name] = buf; })
-      .catch(() => { /* missing or unplayable file: callers fall back to a synthesized sound */ });
+      .catch(() => { /* unplayable file: the generated sound plays instead */ });
   }
 }
 
-/** Play a recorded sound. Returns false if it isn't loaded (yet). */
-function playSample(name: keyof typeof SAMPLE_URLS, volume: number, rate = 1) {
-  const a = audio();
+/** Play a custom sound file if one exists and has loaded. Returns false otherwise. */
+function playCustom(name: SoundName, volume: number, rate = 1) {
   const buf = samples[name];
-  if (!a || !buf) return false;
-  const src = a.createBufferSource();
+  if (!buf || !ctx || volume <= 0) return false;
+  const src = ctx.createBufferSource();
   src.buffer = buf;
   src.playbackRate.value = rate;
-  const g = a.createGain();
+  const g = ctx.createGain();
   g.gain.value = volume;
-  src.connect(g).connect(a.destination);
+  src.connect(g).connect(ctx.destination);
   src.start();
   return true;
 }
 
-export type SkidStyle = "recorded" | "retro" | "scuff" | "screech";
+export type SkidStyle = "retro" | "scuff" | "screech";
 
 /** Skid sound in the chosen style. `strength` 0–1 scales it with speed. */
 export function playSkid(volume: number, strength: number, style: SkidStyle) {
-  if (style === "recorded") {
-    const k = Math.min(Math.max(strength, 0), 1);
-    // Slightly louder and higher-pitched at speed; synthesized retro if the file isn't ready yet
-    if (playSample("skid", (0.35 + 0.3 * k) * volume, 0.94 + 0.12 * k)) return;
-    return skidRetro(volume, strength);
-  }
+  const k = Math.min(Math.max(strength, 0), 1);
+  // A custom skid file wins; slightly louder and higher-pitched at speed
+  if (audio() && playCustom("skid", (0.35 + 0.3 * k) * volume, 0.94 + 0.12 * k)) return;
   if (style === "retro") return skidRetro(volume, strength);
   if (style === "scuff") return skidScuff(volume, strength);
   return skidScreech(volume, strength);
