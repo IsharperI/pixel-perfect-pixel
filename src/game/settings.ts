@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type SettingDef = {
   key: string;
   label: string;
-  category: "Movement" | "Jump" | "Camera";
+  category: "Movement" | "Jump" | "Camera" | "Juice";
   kind: "number" | "boolean" | "choice";
   /** For kind "choice": the options shown as a segmented switch */
   options?: { value: string; label: string }[];
@@ -43,6 +43,12 @@ export const SETTINGS: SettingDef[] = [
   { key: "cameraObstruction", label: "Obstruction", category: "Camera", kind: "choice", options: [{ value: "fade", label: "Fade" }, { value: "push", label: "Push In" }, { value: "off", label: "Off" }], default: "fade", description: "What happens when something gets between the camera and the player. Fade makes it see-through. Push In moves the camera closer, like Mario 64. Off ignores it." },
   { key: "fadeOpacity", label: "Fade Opacity", category: "Camera", kind: "number", min: 0, max: 0.9, step: 0.05, default: 0.25, description: "How visible blocking objects stay when faded. 0 is invisible.", dependsOn: "cameraObstruction", showWhen: "fade" },
   { key: "playerSilhouette", label: "Player Silhouette", category: "Camera", kind: "boolean", default: true, description: "Shows the player as a coloured outline whenever something hides them, so you never lose track of where you are." },
+
+  { key: "squashStretch", label: "Squash & Stretch", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "The character stretches as it jumps and squashes when it lands, then springs back. Harder landings squash more. 0 turns it off." },
+  { key: "dust", label: "Dust Puffs", category: "Juice", kind: "boolean", default: true, description: "A puff of dust when you jump, and a ring of dust when you land. Bigger landings kick up more." },
+  { key: "landingBump", label: "Landing Bump", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.35, description: "The camera dips slightly when you land, so heavy landings feel heavy. 0 turns it off." },
+  { key: "sounds", label: "Sound Effects", category: "Juice", kind: "boolean", default: true, description: "Simple jump and landing sounds, generated in the browser." },
+  { key: "soundVolume", label: "Volume", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "How loud the sound effects are.", dependsOn: "sounds" },
 ];
 
 export type SettingValues = Record<string, number | boolean | string>;

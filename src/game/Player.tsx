@@ -4,12 +4,14 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type Rapie
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
+import { playJump, playLand } from "./sfx";
 import { input, readMove } from "./input";
 
 export const SPAWN = new THREE.Vector3(0, 2, 6);
 const RADIUS = 0.45;
 const HALF = 0.5; // capsule half-height of the cylinder part
 const TRAIL_MAX = 3000;
+const DUST_MAX = 64;
 
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
@@ -20,6 +22,30 @@ export function Player() {
   const shadow = useRef<THREE.Mesh>(null);
   const silhouette = useRef<THREE.Mesh>(null);
   const blocked = useMemo(() => new Set<string>(), []);
+
+  // Dust puffs: a fixed pool of particles drawn as one instanced mesh
+  const dustMesh = useRef<THREE.InstancedMesh>(null);
+  const dust = useMemo(() => ({
+    p: new Float32Array(DUST_MAX * 3), // position
+    v: new Float32Array(DUST_MAX * 3), // velocity
+    life: new Float32Array(DUST_MAX), // seconds left (0 = unused)
+    max: new Float32Array(DUST_MAX), // starting life
+    size: new Float32Array(DUST_MAX),
+    next: 0,
+    dummy: new THREE.Object3D(),
+  }), []);
+  /** Ring of dust at the feet. `speed` = how far it spreads, `count` = how many. */
+  const spawnDust = (x: number, y: number, z: number, count: number, speed: number, size: number) => {
+    for (let i = 0; i < count; i++) {
+      const k = dust.next; dust.next = (dust.next + 1) % DUST_MAX;
+      const a = (i / count) * Math.PI * 2 + Math.random() * 0.6;
+      const sp = speed * (0.7 + Math.random() * 0.6);
+      dust.p.set([x + Math.sin(a) * 0.3, y, z + Math.cos(a) * 0.3], k * 3);
+      dust.v.set([Math.sin(a) * sp, 0.4 + Math.random() * 0.8, Math.cos(a) * sp], k * 3);
+      dust.max[k] = dust.life[k] = 0.35 + Math.random() * 0.3;
+      dust.size[k] = size * (0.7 + Math.random() * 0.6);
+    }
+  };
   const { world, rapier } = useRapier();
   const { camera, gl } = useThree();
 
@@ -34,6 +60,8 @@ export function Player() {
     camTarget: SPAWN.clone(),
     lastPos: SPAWN.clone(), // player position last frame, for the leash camera
     camLen: 8, // current camera distance after Push In obstruction
+    sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
+    bump: 0, bumpV: 0, // landing camera-dip spring
     wasAirborne: false,
   });
 
@@ -152,11 +180,17 @@ export function Player() {
       s.lastGroundedAt = -Infinity;
       input.jumpPressedAt = -Infinity;
       archiveTrail(); // fresh arc; previous one becomes the ghost
+      // Juice: stretch pop, dust, sound
+      s.sqV += 7 * num(S, "squashStretch");
+      if (bool(S, "dust")) { const pp = b.translation(); spawnDust(pp.x, pp.y - (HALF + RADIUS) + 0.08, pp.z, 6, 1.6, 0.18); }
+      if (bool(S, "sounds")) playJump(num(S, "soundVolume"));
     }
     let g = gravity;
     if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
     else if (s.vel.y > 0 && bool(S, "variableJumpHeight") && !mv.jumpHeld && s.jumping) g *= num(S, "fallGravityMultiplier") * 1.5;
     s.vel.y = Math.max(s.vel.y - g * dt, -num(S, "maxFallSpeed"));
+
+    const fallSpeed = Math.max(0, -s.vel.y); // before collision zeroes it, for landing effects
 
     // ---- collide via Rapier character controller
     tmp.v.set(s.vel.x * dt, s.vel.y * dt, s.vel.z * dt);
@@ -173,6 +207,15 @@ export function Player() {
       s.lastGroundedAt = now;
     }
     s.grounded = groundedNow && s.vel.y <= 0;
+
+    // ---- landing juice (ignore tiny drops like stepping down a ledge)
+    if (s.grounded && s.wasAirborne && fallSpeed > 3) {
+      const strength = Math.min(fallSpeed / 25, 1);
+      s.sqV -= fallSpeed * 0.55 * num(S, "squashStretch");
+      s.bumpV -= fallSpeed * 0.11 * num(S, "landingBump");
+      if (bool(S, "dust")) spawnDust(next.x, next.y - (HALF + RADIUS) + 0.08, next.z, Math.round(10 + 10 * strength), 3 + 4 * strength, 0.16 + 0.12 * strength);
+      if (bool(S, "sounds")) playLand(num(S, "soundVolume"), strength);
+    }
     // Stop velocity into walls
     if (dt > 0) {
       const ax = m.x / dt, az = m.z / dt;
@@ -196,8 +239,36 @@ export function Player() {
     }
     if (visual.current) {
       visual.current.rotation.y = s.facing;
-      const sq = s.grounded ? 1 : THREE.MathUtils.clamp(1 + s.vel.y * 0.006, 0.9, 1.1);
-      visual.current.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
+      // Squash & stretch: a spring pulled toward "stretched along the direction
+      // of travel" in the air and "normal" on the ground, kicked by jumps/landings.
+      const amt = num(S, "squashStretch");
+      const want = s.grounded ? 0 : THREE.MathUtils.clamp(Math.abs(s.vel.y) * 0.012, 0, 0.2) * amt;
+      s.sqV += ((want - s.sq) * 320 - s.sqV * 16) * dt;
+      s.sq += s.sqV * dt;
+      const sy = THREE.MathUtils.clamp(1 + s.sq, 0.55, 1.6);
+      const sxz = 1 / Math.sqrt(sy); // keep volume roughly constant
+      visual.current.scale.set(sxz, sy, sxz);
+    }
+
+    // ---- dust particles
+    if (dustMesh.current) {
+      const d = dust, dm = dustMesh.current;
+      for (let i = 0; i < DUST_MAX; i++) {
+        if (d.life[i]! > 0) {
+          d.life[i] = Math.max(0, d.life[i]! - dt);
+          const drag = Math.exp(-5 * dt);
+          d.v[i * 3]! *= drag; d.v[i * 3 + 2]! *= drag;
+          d.v[i * 3 + 1] = d.v[i * 3 + 1]! * drag + 0.6 * dt; // drift upward
+          for (let a = 0; a < 3; a++) d.p[i * 3 + a] = d.p[i * 3 + a]! + d.v[i * 3 + a]! * dt;
+        }
+        const t = d.max[i]! > 0 ? 1 - d.life[i]! / d.max[i]! : 1; // 0 = just born, 1 = gone
+        const scale = d.life[i]! > 0 ? d.size[i]! * (0.5 + 1.2 * t) * (1 - t) * 1.1 : 0; // puff up then fade
+        d.dummy.position.set(d.p[i * 3]!, d.p[i * 3 + 1]!, d.p[i * 3 + 2]!);
+        d.dummy.scale.setScalar(scale);
+        d.dummy.updateMatrix();
+        dm.setMatrixAt(i, d.dummy.matrix);
+      }
+      dm.instanceMatrix.needsUpdate = true;
     }
 
     // ---- blob shadow
@@ -296,9 +367,13 @@ export function Player() {
       s.camLen = wantLen;
     }
     camera.position.set(s.camTarget.x + ox * len, lookY + oy * len, s.camTarget.z + oz * len);
+    // Landing bump: a quick dip-and-recover spring on the camera height
+    s.bumpV += (-s.bump * 140 - s.bumpV * 13) * dt;
+    s.bump += s.bumpV * dt;
+    camera.position.y += s.bump;
     // Never let the camera dip under the floor.
     if (camera.position.y < 0.4) camera.position.y = 0.4;
-    camera.lookAt(s.camTarget.x, lookY, s.camTarget.z);
+    camera.lookAt(s.camTarget.x, lookY + s.bump * 0.5, s.camTarget.z);
 
     // Fade mode: anything between the player and the camera (or around the
     // camera) turns see-through. Rays from feet, middle and head so partly
@@ -383,6 +458,11 @@ export function Player() {
         <circleGeometry args={[RADIUS * 1.1, 32]} />
         <meshBasicMaterial color="#1d2433" transparent opacity={0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-4} />
       </mesh>
+
+      <instancedMesh ref={dustMesh} args={[undefined, undefined, DUST_MAX]} frustumCulled={false}>
+        <icosahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial color="#f4efe4" roughness={1} />
+      </instancedMesh>
 
       <points geometry={ghost.geo} visible={showTrail && showGhost} frustumCulled={false}>
         <pointsMaterial color="#8a7fd6" size={0.12} sizeAttenuation transparent opacity={0.4} depthWrite={false} />
