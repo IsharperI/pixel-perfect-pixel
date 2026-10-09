@@ -1,0 +1,96 @@
+import { create } from "zustand";
+
+export type SettingDef = {
+  key: string;
+  label: string;
+  category: "Movement" | "Jump" | "Camera";
+  kind: "number" | "boolean";
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  default: number | boolean;
+  description: string;
+  /** Only show when this boolean setting is on */
+  dependsOn?: string;
+};
+
+// Add a new tunable by adding ONE entry here — the panel is generated from it.
+export const SETTINGS: SettingDef[] = [
+  { key: "maxSpeed", label: "Max Speed", category: "Movement", kind: "number", min: 1, max: 30, step: 0.5, unit: "u/s", default: 8, description: "The fastest the character can run on the ground." },
+  { key: "acceleration", label: "Acceleration", category: "Movement", kind: "number", min: 1, max: 200, step: 1, unit: "u/s²", default: 40, description: "How quickly the character reaches top speed when you start moving." },
+  { key: "deceleration", label: "Deceleration", category: "Movement", kind: "number", min: 1, max: 200, step: 1, unit: "u/s²", default: 50, description: "How quickly the character stops once you let go of the controls." },
+  { key: "turnSpeed", label: "Turn Speed", category: "Movement", kind: "number", min: 1, max: 40, step: 0.5, default: 12, description: "How fast the character rotates to face the direction it's moving." },
+
+  { key: "jumpHeight", label: "Jump Height", category: "Jump", kind: "number", min: 0.5, max: 10, step: 0.1, unit: "u", default: 3, description: "How high a full jump reaches, in world units." },
+  { key: "timeToApex", label: "Time to Apex", category: "Jump", kind: "number", min: 0.1, max: 1.5, step: 0.01, unit: "s", default: 0.4, description: "Seconds to reach the top of a jump. Lower feels snappier, higher feels floatier." },
+  { key: "fallGravityMultiplier", label: "Fall Gravity Multiplier", category: "Jump", kind: "number", min: 1, max: 5, step: 0.1, unit: "×", default: 1.8, description: "Extra gravity while falling, for snappier, less floaty landings." },
+  { key: "variableJumpHeight", label: "Variable Jump Height", category: "Jump", kind: "boolean", default: true, description: "Releasing Space early cuts the jump short, so taps give small hops." },
+  { key: "airControl", label: "Air Control", category: "Jump", kind: "number", min: 0, max: 1, step: 0.05, default: 0.6, description: "How much you can steer in mid-air. 0 is none, 1 is the same as on the ground." },
+  { key: "maxFallSpeed", label: "Max Fall Speed", category: "Jump", kind: "number", min: 2, max: 80, step: 1, unit: "u/s", default: 25, description: "The terminal velocity — falling never gets faster than this." },
+  { key: "coyoteTime", label: "Coyote Time", category: "Jump", kind: "number", min: 0, max: 0.5, step: 0.01, unit: "s", default: 0.1, description: "Grace period where you can still jump after walking off a ledge." },
+  { key: "jumpBuffer", label: "Jump Buffer", category: "Jump", kind: "number", min: 0, max: 0.5, step: 0.01, unit: "s", default: 0.1, description: "Pressing jump this long before landing still counts as a jump." },
+
+  { key: "cameraDistance", label: "Distance", category: "Camera", kind: "number", min: 2, max: 25, step: 0.5, unit: "u", default: 8, description: "How far the camera sits from the player." },
+  { key: "cameraHeight", label: "Height", category: "Camera", kind: "number", min: 0, max: 15, step: 0.25, unit: "u", default: 3, description: "How high above the player the camera sits." },
+  { key: "followSmoothing", label: "Follow Smoothing", category: "Camera", kind: "number", min: 0, max: 1, step: 0.01, unit: "s", default: 0.15, description: "How much the camera lags behind the player. 0 is locked on." },
+  { key: "autoRotate", label: "Auto-Rotate Behind Player", category: "Camera", kind: "boolean", default: true, description: "The camera slowly swings around to sit behind the direction you're running." },
+  { key: "autoRotateSpeed", label: "Auto-Rotate Speed", category: "Camera", kind: "number", min: 0.1, max: 10, step: 0.1, default: 2, description: "How quickly the camera swings behind the player.", dependsOn: "autoRotate" },
+];
+
+export type SettingValues = Record<string, number | boolean>;
+
+export const defaultValues = (): SettingValues =>
+  Object.fromEntries(SETTINGS.map((s) => [s.key, s.default]));
+
+type Store = {
+  values: SettingValues;
+  set: (key: string, v: number | boolean) => void;
+  reset: () => void;
+  load: (obj: Record<string, unknown>) => number;
+};
+
+export const useSettings = create<Store>((set) => ({
+  values: defaultValues(),
+  set: (key, v) => set((s) => ({ values: { ...s.values, [key]: v } })),
+  reset: () => set({ values: defaultValues() }),
+  load: (obj) => {
+    const next = defaultValues();
+    let n = 0;
+    for (const def of SETTINGS) {
+      const v = obj[def.key];
+      if (def.kind === "boolean" && typeof v === "boolean") { next[def.key] = v; n++; }
+      if (def.kind === "number" && typeof v === "number" && Number.isFinite(v)) {
+        next[def.key] = Math.min(def.max ?? Infinity, Math.max(def.min ?? -Infinity, v));
+        n++;
+      }
+    }
+    set({ values: next });
+    return n;
+  },
+}));
+
+export const num = (v: SettingValues, k: string) => v[k] as number;
+export const bool = (v: SettingValues, k: string) => v[k] as boolean;
+
+/** gravity = 2h / t², jumpVelocity = g * t */
+export function deriveJump(height: number, timeToApex: number) {
+  const gravity = (2 * height) / (timeToApex * timeToApex);
+  return { gravity, jumpVelocity: gravity * timeToApex };
+}
+
+type UI = {
+  panelOpen: boolean;
+  showDebug: boolean;
+  showTrail: boolean;
+  toggle: (k: "panelOpen" | "showDebug" | "showTrail") => void;
+};
+export const useUI = create<UI>((set) => ({
+  panelOpen: true,
+  showDebug: true,
+  showTrail: true,
+  toggle: (k) => set((s) => ({ [k]: !s[k] }) as Partial<UI>),
+}));
+
+/** Mutable live stats written by the player each frame, polled by the HUD. */
+export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0 };
