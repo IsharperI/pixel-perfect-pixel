@@ -218,8 +218,9 @@ function skidRetro(volume: number, strength: number) {
   // Envelope: hits instantly, fades out
   const env = a.createGain();
   env.gain.setValueAtTime(0.0001, t);
-  env.gain.exponentialRampToValueAtTime((0.28 + 0.22 * k) * volume, t + 0.008);
-  env.gain.setValueAtTime((0.28 + 0.22 * k) * volume, t + dur * 0.55);
+  const peak = (0.09 + 0.09 * k) * volume; // about as loud as a soft landing; it used to be the loudest effect
+  env.gain.exponentialRampToValueAtTime(peak, t + 0.008);
+  env.gain.setValueAtTime(peak, t + dur * 0.55);
   env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 
   // Tone: square wave sliding down

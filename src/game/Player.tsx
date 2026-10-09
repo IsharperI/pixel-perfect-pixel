@@ -64,7 +64,8 @@ export function Player() {
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
-    skidding: false, skidDustAcc: 0, lastSkidSoundAt: -Infinity, // skid effects
+    skidding: false, skidStartedAt: 0, skidSoundPlayed: false, skidDustAcc: 0, lastSkidSoundAt: -Infinity, // skid effects
+    wallContactAt: -Infinity, // last time we pressed against a wall (skids ignore wall slides)
     speedT: 0, fov: 60, // speed effects: smoothed 0–1 "how fast" + current field of view
     wasAirborne: false,
     // ---- moves
@@ -380,6 +381,7 @@ export function Player() {
       for (let i = 0; i < controller.numComputedCollisions(); i++) {
         const col = controller.computedCollision(i);
         if (!col || Math.abs(col.normal1.y) > 0.5) continue; // floors and climbable slopes aren't walls
+        s.wallContactAt = now;
         const nl = Math.hypot(col.normal1.x, col.normal1.z) || 1;
         const nx = col.normal1.x / nl, nz = col.normal1.z / nl; // points out of the wall, toward us
         const into = s.vel.x * nx + s.vel.z * nz; // negative = pushing into the wall
@@ -435,15 +437,22 @@ export function Player() {
 
     // ---- skid effects: running fast and steering hard against your momentum
     {
-      const fast = hs > Math.max(4, maxSpeed * 0.45);
       let skid = false;
-      if (bool(S, "skidEffects") && s.grounded && fast && hasInput && s.move === "none" && !crouching) {
+      // Not while sliding along a wall: there, "pushing into the wall" isn't steering against momentum
+      const againstWall = now - s.wallContactAt < 0.15;
+      if (bool(S, "skidEffects") && s.grounded && hs > 6 && hasInput && s.move === "none" && !crouching && !againstWall) {
         const il = Math.hypot(dx, dz);
         const cos = (s.vel.x * dx + s.vel.z * dz) / (hs * il); // 1 = same way, -1 = opposite
-        skid = cos < 0.34; // more than ~70° off your direction of travel
+        // How sharp a turn counts scales with speed: at a normal run only a near-reversal
+        // (~120°) skids; at real speed (16+ u/s, Sonic territory) a ~70° corner does.
+        const f = THREE.MathUtils.clamp((hs - 6) / 10, 0, 1);
+        skid = cos < THREE.MathUtils.lerp(-0.5, 0.34, f);
       }
       const strength = Math.min(hs / 20, 1);
-      if (skid && !s.skidding && now - s.lastSkidSoundAt > 0.35) {
+      if (skid && !s.skidding) { s.skidStartedAt = now; s.skidSoundPlayed = false; }
+      // One sound per skid, once it has lasted a moment (ignores split-second flickers)
+      if (skid && !s.skidSoundPlayed && now - s.skidStartedAt >= 0.06 && now - s.lastSkidSoundAt > 0.5) {
+        s.skidSoundPlayed = true;
         s.lastSkidSoundAt = now;
         if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength, str(S, "skidSound") as SkidStyle);
       }
