@@ -21,6 +21,10 @@ export function Player() {
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
   const tumble = useRef<THREE.Group>(null); // centred group for flips and leans
+  const leanGroup = useRef<THREE.Group>(null); // pivots at the feet: banking into turns, accel lean, run bob
+  const limbs = useRef<THREE.Group>(null);
+  const handL = useRef<THREE.Mesh>(null), handR = useRef<THREE.Mesh>(null);
+  const footL = useRef<THREE.Mesh>(null), footR = useRef<THREE.Mesh>(null);
   const shadow = useRef<THREE.Mesh>(null);
   const silhouette = useRef<THREE.Mesh>(null);
   const blocked = useMemo(() => new Set<string>(), []);
@@ -67,6 +71,8 @@ export function Player() {
     skidding: false, skidStartedAt: 0, skidSoundPlayed: false, skidDustAcc: 0, lastSkidSoundAt: -Infinity, // skid effects
     wallContactAt: -Infinity, // last time we pressed against a wall (skids ignore wall slides)
     speedT: 0, fov: 60, // speed effects: smoothed 0–1 "how fast" + current field of view
+    // animation
+    prevFacing: Math.PI, prevFwdSpeed: 0, roll: 0, pitch: 0, bobY: 0, stridePhase: 0,
     wasAirborne: false,
     // ---- moves
     move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
@@ -435,6 +441,88 @@ export function Player() {
       tumble.current.rotation.x = flip + s.lean;
     }
 
+    // ---- character animation: leans, run bob, floating limbs
+    {
+      const turnAmt = num(S, "turnLean"), accelAmt = num(S, "accelLean");
+      const bobAmt = num(S, "runBob"), swing = num(S, "armSwing");
+      const yawRate = dt > 0 ? angleDiff(s.prevFacing, s.facing) / dt : 0; // + = turning left
+      s.prevFacing = s.facing;
+      const fwdSpeed = s.vel.x * Math.sin(s.facing) + s.vel.z * Math.cos(s.facing);
+      const accel = dt > 0 ? (fwdSpeed - s.prevFwdSpeed) / dt : 0;
+      s.prevFwdSpeed = fwdSpeed;
+      const running = s.grounded && s.move === "none" && !crouching;
+
+      // Bank into turns (more at speed) and tip with acceleration; settle smoothly
+      const rollWant = running ? THREE.MathUtils.clamp(-yawRate * hs * 0.035, -0.5, 0.5) * turnAmt : 0;
+      const pitchWant = running ? THREE.MathUtils.clamp(accel * 0.012, -0.35, 0.35) * accelAmt : 0;
+      s.roll += (rollWant - s.roll) * (1 - Math.exp(-10 * dt));
+      s.pitch += (pitchWant - s.pitch) * (1 - Math.exp(-8 * dt));
+
+      // Stride: a phase that advances with distance covered, so steps match speed
+      const sf = Math.min(hs / 8, 1); // stride size: full at a normal run
+      if (s.grounded) s.stridePhase += hs * dt * 1.6 * num(S, "strideRate");
+      const bobWant = running ? Math.abs(Math.sin(s.stridePhase)) * 0.09 * bobAmt * sf : 0;
+      s.bobY += (bobWant - s.bobY) * (1 - Math.exp(-25 * dt));
+      if (leanGroup.current) {
+        leanGroup.current.rotation.set(s.pitch, 0, s.roll);
+        leanGroup.current.position.y = s.bobY;
+      }
+
+      if (limbs.current) limbs.current.visible = bool(S, "floatingLimbs");
+      if (bool(S, "floatingLimbs") && handL.current && handR.current && footL.current && footR.current) {
+        // Targets for each limb, in the body's own space (origin = body centre, +z = forward)
+        const p = s.stridePhase, t = now;
+        let hl: [number, number, number], hr: [number, number, number], fl: [number, number, number], fr: [number, number, number];
+        if (s.move === "float") {
+          // Arms out wide, flapping; feet dangling
+          const flap = Math.sin(t * 18) * 0.09;
+          hl = [0.95, 0.12 + flap, 0]; hr = [-0.95, 0.12 + flap, 0];
+          fl = [0.2, -0.98, -0.05 + Math.sin(t * 3) * 0.05]; fr = [-0.2, -0.98, -0.05 - Math.sin(t * 3) * 0.05];
+        } else if (s.move === "long") {
+          // Superhero dive: arms swept back, feet trailing
+          hl = [0.55, 0.05, -0.45]; hr = [-0.55, 0.05, -0.45];
+          fl = [0.2, -0.78, -0.42]; fr = [-0.2, -0.82, -0.36];
+        } else if (s.move === "stall" || s.move === "pound") {
+          // Tucked into a ball, arms up for the slam
+          const slam = s.move === "pound";
+          hl = [0.48, slam ? 0.55 : -0.15, slam ? 0 : 0.25]; hr = [-0.48, slam ? 0.55 : -0.15, slam ? 0 : 0.25];
+          fl = [0.18, -0.62, 0.15]; fr = [-0.18, -0.62, 0.15];
+        } else if (!s.grounded) {
+          if (s.vel.y > 0) {
+            // Rising: arms up, feet tucked
+            hl = [0.72, 0.38, 0.05]; hr = [-0.72, 0.38, 0.05];
+            fl = [0.2, -0.66, 0.12]; fr = [-0.2, -0.7, 0.05];
+          } else {
+            // Falling: arms out for balance, feet reaching for the ground
+            hl = [0.8, 0.12, 0]; hr = [-0.8, 0.12, 0];
+            fl = [0.22, -1.0, 0.04]; fr = [-0.22, -1.0, -0.04];
+          }
+        } else if (crouching) {
+          hl = [0.62, -0.42, 0.18]; hr = [-0.62, -0.42, 0.18];
+          fl = [0.3, -0.9, 0.08]; fr = [-0.3, -0.9, 0.08];
+        } else if (s.skidding) {
+          // Braced against the skid: feet planted ahead, arms flung back
+          hl = [0.7, 0.1, -0.3]; hr = [-0.7, 0.1, -0.3];
+          fl = [0.22, -0.9, 0.35]; fr = [-0.22, -0.9, 0.25];
+        } else {
+          // Running / idle. Each foot loops forward and up; hands swing opposite the same-side foot.
+          const idle = sf < 0.05 ? Math.sin(t * 2.2) * 0.025 : 0;
+          const step = (ph: number) => [Math.sin(ph) * 0.32 * sf, Math.max(0, Math.cos(ph)) * 0.16 * sf] as const;
+          const [lz, ly] = step(p), [rz, ry] = step(p + Math.PI);
+          const hs2 = 0.3 * swing * sf;
+          hl = [0.68, -0.05 + idle + Math.abs(Math.sin(p)) * 0.04 * sf, 0.05 - Math.sin(p) * hs2];
+          hr = [-0.68, -0.05 + idle + Math.abs(Math.sin(p)) * 0.04 * sf, 0.05 + Math.sin(p) * hs2];
+          // Subtract the body bob so feet stay on the floor while the body bounces
+          fl = [0.2, -0.88 + ly - s.bobY, 0.05 + lz]; fr = [-0.2, -0.88 + ry - s.bobY, 0.05 + rz];
+        }
+        const k = 1 - Math.exp(-22 * dt);
+        handL.current.position.lerp(tmp.v.set(...hl), k);
+        handR.current.position.lerp(tmp.v.set(...hr), k);
+        footL.current.position.lerp(tmp.v.set(...fl), k);
+        footR.current.position.lerp(tmp.v.set(...fr), k);
+      }
+    }
+
     // ---- skid effects: running fast and steering hard against your momentum
     {
       let skid = false;
@@ -641,12 +729,34 @@ export function Player() {
       <RigidBody ref={body} type="kinematicPosition" colliders={false} position={SPAWN.toArray()} enabledRotations={[false, false, false]}>
         <CapsuleCollider ref={collider} args={[HALF, RADIUS]} />
         <group ref={visual} position={[0, -(HALF + RADIUS), 0]}>
+          <group ref={leanGroup}>
           <group ref={tumble} position={[0, HALF + RADIUS, 0]}>
-            <mesh castShadow>
+            {/* Floating hands and feet. Tagged as "player" in the stencil buffer (like the
+                body), so the silhouette doesn't treat a hand in front of the body as an obstacle. */}
+            <group ref={limbs}>
+              <mesh ref={handL} position={[0.68, -0.05, 0.05]} renderOrder={1} castShadow>
+                <sphereGeometry args={[0.15, 16, 12]} />
+                <meshStandardMaterial color="#fff6ea" roughness={0.4} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
+              </mesh>
+              <mesh ref={handR} position={[-0.68, -0.05, 0.05]} renderOrder={1} castShadow>
+                <sphereGeometry args={[0.15, 16, 12]} />
+                <meshStandardMaterial color="#fff6ea" roughness={0.4} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
+              </mesh>
+              <mesh ref={footL} position={[0.2, -0.88, 0.05]} scale={[0.15, 0.11, 0.25]} renderOrder={1} castShadow>
+                <sphereGeometry args={[1, 16, 12]} />
+                <meshStandardMaterial color="#3d4f9a" roughness={0.5} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
+              </mesh>
+              <mesh ref={footR} position={[-0.2, -0.88, 0.05]} scale={[0.15, 0.11, 0.25]} renderOrder={1} castShadow>
+                <sphereGeometry args={[1, 16, 12]} />
+                <meshStandardMaterial color="#3d4f9a" roughness={0.5} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
+              </mesh>
+            </group>
+            <mesh castShadow renderOrder={1}>
               <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
-              <meshStandardMaterial color="#ff7a59" roughness={0.45} />
+              <meshStandardMaterial color="#ff7a59" roughness={0.45} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
             </mesh>
-            {/* Silhouette: only drawn where something sits in front of the player (GreaterDepth) */}
+            {/* Silhouette: drawn where something sits in front of the player (GreaterDepth), but
+                only where that something isn't part of the player itself (stencil ≠ 1) */}
             <mesh ref={silhouette} renderOrder={10}>
               <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
               <meshBasicMaterial
@@ -655,6 +765,12 @@ export function Player() {
                 opacity={0.55}
                 depthWrite={false}
                 depthFunc={THREE.GreaterDepth}
+                stencilWrite
+                stencilRef={1}
+                stencilFunc={THREE.NotEqualStencilFunc}
+                stencilFail={THREE.KeepStencilOp}
+                stencilZFail={THREE.KeepStencilOp}
+                stencilZPass={THREE.KeepStencilOp}
                 polygonOffset
                 polygonOffsetFactor={-1}
                 polygonOffsetUnits={-1}
@@ -664,21 +780,22 @@ export function Player() {
             {[-0.17, 0.17].map((x) => (
               <group key={x} position={[x, 0.35, RADIUS - 0.06]}>
                 {/* Face parts don't write depth, so the silhouette doesn't treat them as "in front" of the player */}
-                <mesh>
+                <mesh renderOrder={2}>
                   <sphereGeometry args={[0.12, 16, 12]} />
                   <meshStandardMaterial color="#ffffff" roughness={0.3} depthWrite={false} />
                 </mesh>
-                <mesh position={[0, 0, 0.08]} renderOrder={1}>
+                <mesh position={[0, 0, 0.08]} renderOrder={3}>
                   <sphereGeometry args={[0.06, 12, 10]} />
                   <meshStandardMaterial color="#1d2433" roughness={0.2} depthWrite={false} />
                 </mesh>
               </group>
             ))}
             {/* nose */}
-            <mesh position={[0, 0.12, RADIUS + 0.04]} rotation-x={Math.PI / 2} castShadow>
+            <mesh position={[0, 0.12, RADIUS + 0.04]} rotation-x={Math.PI / 2} renderOrder={2} castShadow>
               <coneGeometry args={[0.09, 0.22, 12]} />
               <meshStandardMaterial color="#ffb547" roughness={0.5} depthWrite={false} />
             </mesh>
+          </group>
           </group>
         </group>
       </RigidBody>

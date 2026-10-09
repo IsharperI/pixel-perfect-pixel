@@ -18,7 +18,8 @@ export function GameCanvas() {
       <AppRibbon />
       {/* The game area: overlays position themselves inside this, below the ribbon */}
       <div className="relative flex-1 overflow-hidden">
-      <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 5, 14], fov: 60 }}>
+      {/* stencil: used to tell "level in front of the player" from "the player's own hand in front" for the silhouette */}
+      <Canvas shadows dpr={[1, 2]} gl={{ stencil: true }} camera={{ position: [0, 5, 14], fov: 60 }}>
         <color attach="background" args={["#bfe3ff"]} />
         <fog attach="fog" args={["#bfe3ff", 45, 110]} />
         <hemisphereLight args={["#ffffff", "#a8d5a2", 0.7]} />

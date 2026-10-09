@@ -3,7 +3,7 @@ import { create } from "zustand";
 export type SettingDef = {
   key: string;
   label: string;
-  category: "Movement" | "Jump" | "Moves" | "Camera" | "Juice";
+  category: "Movement" | "Jump" | "Moves" | "Camera" | "Animation" | "Juice";
   kind: "number" | "boolean" | "choice";
   /** For kind "choice": the options shown as a segmented switch */
   options?: { value: string; label: string }[];
@@ -63,6 +63,12 @@ export const SETTINGS: SettingDef[] = [
   { key: "fadeOpacity", label: "Fade Opacity", category: "Camera", kind: "number", min: 0, max: 0.9, step: 0.05, default: 0.25, description: "How visible blocking objects stay when faded. 0 is invisible.", dependsOn: "cameraObstruction", showWhen: "fade" },
   { key: "playerSilhouette", label: "Player Silhouette", category: "Camera", kind: "boolean", default: true, description: "Shows the player as a coloured outline whenever something hides them, so you never lose track of where you are." },
 
+  { key: "floatingLimbs", label: "Floating Limbs", category: "Animation", kind: "boolean", default: true, description: "Detached hands and feet that float around the body: the feet run in little loops, the hands swing, and both strike poses for jumps and moves." },
+  { key: "turnLean", label: "Turn Lean", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.4, description: "How much the character banks into turns, like a cyclist. Grows with speed, so fast characters lean hardest." },
+  { key: "accelLean", label: "Acceleration Lean", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.3, description: "Tip forward when speeding up and rock back when braking." },
+  { key: "runBob", label: "Run Bob", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.4, description: "How much the body bounces with each step while running." },
+  { key: "strideRate", label: "Stride Rate", category: "Animation", kind: "number", min: 0.5, max: 2, step: 0.05, unit: "×", default: 1, description: "How quickly the feet cycle for a given speed. Higher looks like quick little steps, lower like long strides." },
+  { key: "armSwing", label: "Arm Swing", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "How far the hands swing while running.", dependsOn: "floatingLimbs" },
   { key: "squashStretch", label: "Squash & Stretch", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "The character stretches as it jumps and squashes when it lands, then springs back. Harder landings squash more. 0 turns it off." },
   { key: "dust", label: "Dust Puffs", category: "Juice", kind: "boolean", default: true, description: "A puff of dust when you jump, and a ring of dust when you land. Bigger landings kick up more." },
   { key: "landingBump", label: "Landing Bump", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.35, description: "The camera dips slightly when you land, so heavy landings feel heavy. 0 turns it off." },
@@ -94,6 +100,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.08, jumpBuffer: 0.1,
       cameraDistance: 9, cameraHeight: 3.5, followSmoothing: 0.22, leashSwing: 1, autoRotate: true, autoRotateSpeed: 1.5,
       cameraObstruction: "push", playerSilhouette: false,
+      turnLean: 0.5, armSwing: 0.7,
       longJump: true, groundPound: true, wallJump: true, wallJumpWindow: 0.1,
     },
   },
@@ -106,6 +113,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.12, jumpBuffer: 0.12,
       cameraDistance: 8, cameraHeight: 3, followSmoothing: 0.12, leashSwing: 1, autoRotate: true, autoRotateSpeed: 2.5,
       doubleJump: true, doubleJumpHeight: 0.85, longJump: true, longJumpSpeed: 14, longJumpHeight: 1.6,
+      turnLean: 0.6, accelLean: 0.4,
     },
   },
   {
@@ -117,6 +125,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.15, jumpBuffer: 0.15,
       followSmoothing: 0.35,
       doubleJump: true, airJumps: 2, doubleJumpHeight: 0.7,
+      runBob: 0.6, strideRate: 0.7,
     },
   },
   {
@@ -128,6 +137,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.1, jumpBuffer: 0.12,
       followSmoothing: 0.06,
       doubleJump: true, wallJump: true, wallJumpWindow: 0.25,
+      accelLean: 0.15, strideRate: 1.3,
     },
   },
   {
@@ -139,6 +149,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.03, jumpBuffer: 0.05,
       followSmoothing: 0.3,
       groundPound: true, poundStall: 0.1, poundSpeed: 50,
+      turnLean: 0.1, accelLean: 0.15, runBob: 0.15, armSwing: 0.2, strideRate: 0.75,
     },
   },
   {
@@ -150,6 +161,7 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.1, jumpBuffer: 0.12,
       followSmoothing: 0.2,
       float: true, floatFlaps: 6, flapLift: 6.5, floatFallSpeed: 1.75, floatMoveSpeed: 0.55,
+      runBob: 0.8, strideRate: 1.4,
     },
   },
   {
@@ -160,6 +172,7 @@ export const PRESETS: Preset[] = [
       jumpHeight: 3.4, timeToApex: 0.36, fallGravityMultiplier: 1.7, airControl: 0.55, maxFallSpeed: 40,
       coyoteTime: 0.1, jumpBuffer: 0.12,
       cameraDistance: 12, cameraHeight: 3.5, followSmoothing: 0.08, autoRotateSpeed: 3.5,
+      turnLean: 0.9, accelLean: 0.5, armSwing: 0.8, strideRate: 0.85,
     },
   },
 ];

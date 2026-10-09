@@ -4,7 +4,7 @@ import { events } from "./events";
 import { toCharacterFile, readCharacterFile } from "./characterFile";
 import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
 
-const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Juice"] as const;
+const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Animation", "Juice"] as const;
 
 export function SettingsPanel() {
   const open = useUI((s) => s.panelOpen);

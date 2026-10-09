@@ -15,7 +15,8 @@ function Block({ pos, size, color, rot }: { pos: V3; size: V3; color: string; ro
     <RigidBody type="fixed" colliders="cuboid" position={pos} rotation={rot} userData={{ fadeId }}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={size} />
-        <meshStandardMaterial ref={mat} color={color} roughness={0.8} />
+        {/* Tagged "level" (0) in the stencil buffer, so the player silhouette shows through it */}
+        <meshStandardMaterial ref={mat} color={color} roughness={0.8} stencilWrite stencilRef={0} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
       </mesh>
     </RigidBody>
   );
@@ -47,7 +48,7 @@ export function Level() {
       <RigidBody type="fixed" colliders="cuboid" position={[0, -0.5, 0]}>
         <mesh receiveShadow>
           <boxGeometry args={[140, 1, 140]} />
-          <meshStandardMaterial color="#cfe8c4" roughness={1} />
+          <meshStandardMaterial color="#cfe8c4" roughness={1} stencilWrite stencilRef={0} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
         </mesh>
       </RigidBody>
       <Grid
