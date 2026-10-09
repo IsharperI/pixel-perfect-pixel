@@ -12,11 +12,11 @@ describe("jump derivation", () => {
 describe("defaults", () => {
   it("match the spec", () => {
     const d = defaultValues();
-    expect(d.maxSpeed).toBe(8);
-    expect(d.acceleration).toBe(40);
-    expect(d.deceleration).toBe(50);
-    expect(d.fallGravityMultiplier).toBe(1.8);
-    expect(d.coyoteTime).toBe(0.1);
-    expect(d.cameraDistance).toBe(8);
+    expect(d['maxSpeed']).toBe(8);
+    expect(d['acceleration']).toBe(40);
+    expect(d['deceleration']).toBe(50);
+    expect(d['fallGravityMultiplier']).toBe(1.8);
+    expect(d['coyoteTime']).toBe(0.1);
+    expect(d['cameraDistance']).toBe(8);
   });
 });
