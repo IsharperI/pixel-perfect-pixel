@@ -1,24 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GameCanvas } from "../game/GameCanvas";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Platformer Toolkit 3D — Tune & Feel Character Movement" },
+      { name: "description", content: "Tune a 3D platformer character's movement with live sliders, then play to feel the difference." },
+      { property: "og:title", content: "Platformer Toolkit 3D" },
+      { property: "og:description", content: "Live-tune jump height, gravity, coyote time and camera — then play instantly." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: GameCanvas,
 });
-
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
