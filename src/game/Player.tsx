@@ -4,7 +4,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type Rapie
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand, playFlap, playExhale } from "./sfx";
+import { playJump, playLand, playFlap, playExhale, playSkid } from "./sfx";
 import { input, readMove } from "./input";
 import { events } from "./events";
 
@@ -12,7 +12,7 @@ export const SPAWN = new THREE.Vector3(0, 2, 6);
 const RADIUS = 0.45;
 const HALF = 0.5; // capsule half-height of the cylinder part
 const TRAIL_MAX = 3000;
-const DUST_MAX = 64;
+const DUST_MAX = 96;
 
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
@@ -64,6 +64,7 @@ export function Player() {
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
+    skidding: false, skidDustAcc: 0, lastSkidSoundAt: -Infinity, // skid effects
     wasAirborne: false,
     // ---- moves
     move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
@@ -429,6 +430,33 @@ export function Player() {
       const leanWant = s.move === "long" ? 1.0 : 0;
       s.lean += (leanWant - s.lean) * (1 - Math.exp(-12 * dt));
       tumble.current.rotation.x = flip + s.lean;
+    }
+
+    // ---- skid effects: running fast and steering hard against your momentum
+    {
+      const fast = hs > Math.max(4, maxSpeed * 0.45);
+      let skid = false;
+      if (bool(S, "skidEffects") && s.grounded && fast && hasInput && s.move === "none" && !crouching) {
+        const il = Math.hypot(dx, dz);
+        const cos = (s.vel.x * dx + s.vel.z * dz) / (hs * il); // 1 = same way, -1 = opposite
+        skid = cos < 0.34; // more than ~70° off your direction of travel
+      }
+      const strength = Math.min(hs / 20, 1);
+      if (skid && !s.skidding && now - s.lastSkidSoundAt > 0.35) {
+        s.lastSkidSoundAt = now;
+        if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength);
+      }
+      if (skid && bool(S, "dust")) {
+        // A steady stream of small puffs from the feet, faster the quicker you're going
+        s.skidDustAcc += dt * (18 + 22 * strength);
+        const fy = next.y - (HALF + RADIUS) + 0.08;
+        while (s.skidDustAcc >= 1) {
+          s.skidDustAcc -= 1;
+          spawnDust(next.x + (Math.random() - 0.5) * 0.4, fy, next.z + (Math.random() - 0.5) * 0.4, 1, 0.6 + strength, 0.2 + 0.14 * strength);
+        }
+      }
+      if (!skid) s.skidDustAcc = 0;
+      s.skidding = skid;
     }
 
     // ---- dust particles

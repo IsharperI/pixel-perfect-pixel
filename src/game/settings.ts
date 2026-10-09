@@ -66,6 +66,7 @@ export const SETTINGS: SettingDef[] = [
   { key: "squashStretch", label: "Squash & Stretch", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "The character stretches as it jumps and squashes when it lands, then springs back. Harder landings squash more. 0 turns it off." },
   { key: "dust", label: "Dust Puffs", category: "Juice", kind: "boolean", default: true, description: "A puff of dust when you jump, and a ring of dust when you land. Bigger landings kick up more." },
   { key: "landingBump", label: "Landing Bump", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.35, description: "The camera dips slightly when you land, so heavy landings feel heavy. 0 turns it off." },
+  { key: "skidEffects", label: "Skid Effects", category: "Juice", kind: "boolean", default: true, description: "When you turn sharply or reverse while running fast, your feet kick up a trail of dust and you hear a skid. It shows best on fast characters that turn slowly, like Sonic." },
   { key: "sounds", label: "Sound Effects", category: "Juice", kind: "boolean", default: true, description: "Simple jump and landing sounds, generated in the browser." },
   { key: "soundVolume", label: "Volume", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "How loud the sound effects are.", dependsOn: "sounds" },
 ];

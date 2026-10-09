@@ -120,3 +120,47 @@ export function playExhale(volume: number) {
   n.start(t);
   n.stop(t + 0.25);
 }
+
+/** A short tire-style screech for skids. `strength` 0–1 scales loudness and pitch with speed. */
+export function playSkid(volume: number, strength: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  const t = a.currentTime;
+  const k = Math.min(Math.max(strength, 0), 1);
+  const dur = 0.25 + 0.2 * k;
+
+  // Scrape: noise through a narrow, falling band-pass filter
+  const n = a.createBufferSource();
+  n.buffer = noiseBuffer(a);
+  n.loop = true;
+  const f = a.createBiquadFilter();
+  f.type = "bandpass";
+  f.Q.value = 9;
+  f.frequency.setValueAtTime(1900 + 900 * k, t);
+  f.frequency.exponentialRampToValueAtTime(1300 + 500 * k, t + dur);
+  const ng = a.createGain();
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.exponentialRampToValueAtTime((0.25 + 0.35 * k) * volume, t + 0.02);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  n.connect(f).connect(ng).connect(a.destination);
+  n.start(t);
+  n.stop(t + dur + 0.05);
+
+  // Squeal: a faint wavering tone on top
+  const o = a.createOscillator();
+  const og = a.createGain();
+  const lfo = a.createOscillator();
+  const lg = a.createGain();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(1700 + 600 * k, t);
+  o.frequency.exponentialRampToValueAtTime(1250 + 300 * k, t + dur);
+  lfo.frequency.value = 28;
+  lg.gain.value = 40;
+  lfo.connect(lg).connect(o.frequency);
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.exponentialRampToValueAtTime(0.05 * volume * (0.4 + 0.6 * k), t + 0.03);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(og).connect(a.destination);
+  o.start(t); lfo.start(t);
+  o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+}
