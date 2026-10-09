@@ -79,7 +79,9 @@ export function Player() {
   useFrame((_, rawDt) => {
     const b = body.current, c = collider.current;
     if (!b || !c) { return; }
-    (window as any).__f = ((window as any).__f ?? 0) + 1;
+    (window as any).__f = ((window as any).__f ?? 0) + 1; try { step(b, c, rawDt); } catch (e) { if ((window as any).__f % 100 === 1) console.log("dbg err", String(e), (e as Error).stack?.slice(0, 300)); }
+  });
+  const step = (b: RapierRigidBody, c: RapierCollider, rawDt: number) => {
     const dt = Math.min(rawDt, 0.05);
     const now = performance.now() / 1000;
     const S = useSettings.getState().values;
