@@ -8,11 +8,15 @@ import { useInputListeners } from "./input";
 import { SettingsPanel } from "./SettingsPanel";
 import { DebugOverlay } from "./DebugOverlay";
 import { Tutorial } from "./TutorialOverlay";
+import { AppRibbon } from "../components/AppRibbon";
 
 export function GameCanvas() {
   useInputListeners();
   return (
-    <div className="fixed inset-0 overflow-hidden bg-background">
+    <div className="fixed inset-0 flex flex-col bg-background">
+      <AppRibbon />
+      {/* The game area: overlays position themselves inside this, below the ribbon */}
+      <div className="relative flex-1 overflow-hidden">
       <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 5, 14], fov: 60 }}>
         <color attach="background" args={["#bfe3ff"]} />
         <fog attach="fog" args={["#bfe3ff", 45, 110]} />
@@ -42,6 +46,7 @@ export function GameCanvas() {
       <DebugOverlay />
       <SettingsPanel />
       <Tutorial />
+      </div>
     </div>
   );
 }

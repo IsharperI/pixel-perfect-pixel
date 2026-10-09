@@ -166,5 +166,12 @@
   .tut-next { font-size: .8rem; font-weight: 700; padding: .5rem; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); color: var(--muted-foreground); transition: all .2s; }
   .tut-next[data-ready="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
   .tool-btn:disabled { opacity: .4; pointer-events: none; }
+  .app-ribbon { flex: none; height: 48px; display: flex; align-items: center; gap: 1.25rem; padding: 0 1rem; background: var(--card); color: var(--card-foreground); border-bottom: 1px solid var(--border); z-index: 50; }
+  .app-ribbon-title { font-weight: 700; font-size: .95rem; letter-spacing: -0.01em; white-space: nowrap; }
+  .app-ribbon-tabs { display: flex; gap: .25rem; height: 100%; }
+  .app-tab { display: flex; align-items: center; gap: .45rem; padding: 0 .85rem; font-size: .8rem; font-weight: 600; color: var(--muted-foreground); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; white-space: nowrap; }
+  .app-tab:hover { color: var(--foreground); }
+  .app-tab[data-active="true"] { color: var(--foreground); border-bottom-color: var(--primary); }
+  @media (max-width: 560px) { .app-ribbon-title { display: none; } .app-ribbon { padding: 0 .5rem; } .app-tab { padding: 0 .6rem; } }
   .tool-btn:hover { background: var(--foreground); color: var(--card); }
 }
