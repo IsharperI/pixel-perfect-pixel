@@ -82,3 +82,41 @@ export function playLand(volume: number, strength: number) {
   o.start(t);
   o.stop(t + 0.17);
 }
+
+/** A soft, airy "fwup" for each float flap. */
+export function playFlap(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  const t = a.currentTime;
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(420, t);
+  o.frequency.exponentialRampToValueAtTime(620, t + 0.08);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.12 * volume, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  o.connect(g).connect(a.destination);
+  o.start(t);
+  o.stop(t + 0.14);
+}
+
+/** A breathy "pff" when exhaling out of a float. */
+export function playExhale(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  const t = a.currentTime;
+  const n = a.createBufferSource();
+  n.buffer = noiseBuffer(a);
+  const f = a.createBiquadFilter();
+  f.type = "bandpass";
+  f.frequency.value = 1400;
+  f.Q.value = 0.8;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.18 * volume, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  n.connect(f).connect(g).connect(a.destination);
+  n.start(t);
+  n.stop(t + 0.25);
+}

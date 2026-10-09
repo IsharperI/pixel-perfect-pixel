@@ -47,6 +47,11 @@ export const SETTINGS: SettingDef[] = [
   { key: "wallJumpHeight", label: "Wall Jump Height", category: "Moves", kind: "number", min: 0.5, max: 6, step: 0.1, unit: "u", default: 3, description: "How high a wall kick sends you.", dependsOn: "wallJump" },
   { key: "wallJumpPush", label: "Wall Push", category: "Moves", kind: "number", min: 2, max: 20, step: 0.5, unit: "u/s", default: 9, description: "How hard a wall kick pushes you away from the wall.", dependsOn: "wallJump" },
   { key: "wallJumpWindow", label: "Wall Jump Window", category: "Moves", kind: "number", min: 0.05, max: 0.5, step: 0.01, unit: "s", default: 0.2, description: "How long after touching a wall you can still kick off it. Mario 64 was famously strict.", dependsOn: "wallJump" },
+  { key: "float", label: "Float (Kirby)", category: "Moves", kind: "boolean", default: false, description: "Once you're out of air jumps, each press of jump in mid-air is a flap that lifts you a little, and you drift down slowly in between (like Kirby). Press Shift to exhale and drop." },
+  { key: "floatFlaps", label: "Max Flaps", category: "Moves", kind: "number", min: 1, max: 10, step: 1, default: 5, description: "How many flaps you get before landing. Once they're used up you keep gliding down slowly.", dependsOn: "float" },
+  { key: "flapLift", label: "Flap Lift", category: "Moves", kind: "number", min: 2, max: 12, step: 0.5, unit: "u/s", default: 6, description: "How much each flap lifts you.", dependsOn: "float" },
+  { key: "floatFallSpeed", label: "Float Fall Speed", category: "Moves", kind: "number", min: 0.5, max: 6, step: 0.25, unit: "u/s", default: 2, description: "The fastest you sink while floating. Lower feels more like hovering.", dependsOn: "float" },
+  { key: "floatMoveSpeed", label: "Float Move Speed", category: "Moves", kind: "number", min: 0.2, max: 1, step: 0.05, unit: "×", default: 0.55, description: "How fast you can move sideways while floating, compared to running.", dependsOn: "float" },
 
   { key: "cameraDistance", label: "Distance", category: "Camera", kind: "number", min: 2, max: 25, step: 0.5, unit: "u", default: 8, description: "How far the camera sits from the player." },
   { key: "cameraHeight", label: "Height", category: "Camera", kind: "number", min: 0, max: 15, step: 0.25, unit: "u", default: 3, description: "How high above the player the camera sits." },
@@ -130,6 +135,17 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.03, jumpBuffer: 0.05,
       followSmoothing: 0.3,
       groundPound: true, poundStall: 0.1, poundSpeed: 50,
+    },
+  },
+  {
+    name: "Kirby",
+    description: "Small, bouncy and light. A modest jump, then flap your way up and float gently back down.",
+    values: {
+      maxSpeed: 6.5, acceleration: 35, deceleration: 40, turnSpeed: 14,
+      jumpHeight: 2.2, timeToApex: 0.36, fallGravityMultiplier: 1.4, airControl: 0.8, maxFallSpeed: 20,
+      coyoteTime: 0.1, jumpBuffer: 0.12,
+      followSmoothing: 0.2,
+      float: true, floatFlaps: 6, flapLift: 6.5, floatFallSpeed: 1.75, floatMoveSpeed: 0.55,
     },
   },
 ];

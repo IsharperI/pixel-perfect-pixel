@@ -4,7 +4,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type Rapie
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand } from "./sfx";
+import { playJump, playLand, playFlap, playExhale } from "./sfx";
 import { input, readMove } from "./input";
 
 export const SPAWN = new THREE.Vector3(0, 2, 6);
@@ -65,8 +65,9 @@ export function Player() {
     bump: 0, bumpV: 0, // landing camera-dip spring
     wasAirborne: false,
     // ---- moves
-    move: "none" as "none" | "long" | "stall" | "pound" | "wall",
+    move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
     airJumpsUsed: 0,
+    flapsUsed: 0, puff: 0, // float (Kirby) flaps used this airtime + puffed-up visual amount
     variableOk: true, // whether releasing jump early may cut this jump short
     wallTouchAt: -Infinity, wallNX: 0, wallNZ: 0, // last wall contact in the air + its outward direction
     controlLockUntil: -Infinity, // briefly ignore steering after a wall kick
@@ -183,8 +184,10 @@ export function Player() {
         s.vel.x = Math.sin(cur + turn) * sp; s.vel.z = Math.cos(cur + turn) * sp;
       }
     } else {
-      const tx = crouching ? 0 : dx * maxSpeed, tz = crouching ? 0 : dz * maxSpeed;
-      const airMul = s.grounded ? 1 : now < s.controlLockUntil ? 0 : num(S, "airControl");
+      const floating = s.move === "float";
+      const top = floating ? maxSpeed * num(S, "floatMoveSpeed") : maxSpeed;
+      const tx = crouching ? 0 : dx * top, tz = crouching ? 0 : dz * top;
+      const airMul = s.grounded ? 1 : now < s.controlLockUntil ? 0 : floating ? 0.5 : num(S, "airControl");
       const rate = crouching ? num(S, "deceleration") * 0.2 // slow slide, leaves time to long jump
         : (hasInput ? num(S, "acceleration") : num(S, "deceleration")) * airMul;
       const ex = tx - s.vel.x, ez = tz - s.vel.z;
@@ -238,11 +241,11 @@ export function Player() {
         s.facing = Math.atan2(s.wallNX, s.wallNZ);
         s.controlLockUntil = now + 0.2;
         s.move = "wall"; s.variableOk = false; s.jumping = true;
-        s.airJumpsUsed = 0; s.wallTouchAt = -Infinity;
+        s.airJumpsUsed = 0; s.flapsUsed = 0; s.wallTouchAt = -Infinity;
         input.jumpPressedAt = -Infinity;
         archiveTrail();
         takeoffJuice(4);
-      } else if (bool(S, "doubleJump") && s.airJumpsUsed < num(S, "airJumps")) {
+      } else if (bool(S, "doubleJump") && s.move !== "float" && s.airJumpsUsed < num(S, "airJumps")) {
         // AIR JUMP: fresh upward kick, and snap toward the stick direction
         s.airJumpsUsed++;
         s.vel.y = launch(num(S, "jumpHeight") * num(S, "doubleJumpHeight"));
@@ -255,7 +258,25 @@ export function Player() {
         s.flipStart = now; s.flipDur = 0.35;
         input.jumpPressedAt = -Infinity;
         takeoffJuice(5);
+      } else if (bool(S, "float") && s.flapsUsed < num(S, "floatFlaps")) {
+        // FLOAT FLAP (Kirby): puff up, and each press lifts you a little
+        s.flapsUsed++;
+        s.move = "float"; s.variableOk = false; s.jumping = true;
+        s.vel.y = Math.max(s.vel.y, num(S, "flapLift"));
+        input.jumpPressedAt = -Infinity;
+        s.sqV += 3 * num(S, "squashStretch");
+        if (bool(S, "sounds")) playFlap(num(S, "soundVolume"));
       }
+    }
+
+    // EXHALE: Shift while floating drops you out of the float. Consumes the press,
+    // so a second Shift press is needed for a ground pound.
+    if (s.move === "float" && now - input.crouchPressedAt <= 0.25) {
+      input.crouchPressedAt = -Infinity;
+      s.move = "none";
+      s.vel.y = Math.min(s.vel.y, 0);
+      if (bool(S, "dust")) { const pp = b.translation(); spawnDust(pp.x, pp.y + 0.2, pp.z, 6, 1.2, 0.14); }
+      if (bool(S, "sounds")) playExhale(num(S, "soundVolume"));
     }
 
     // GROUND POUND: Shift in mid-air → flip and hang, then slam
@@ -273,6 +294,9 @@ export function Player() {
     }
     if (s.move === "pound") {
       s.vel.y = -num(S, "poundSpeed");
+    } else if (s.move === "float") {
+      // Floating: lighter gravity and a gentle maximum sink speed
+      s.vel.y = Math.max(s.vel.y - gravity * 0.5 * dt, -num(S, "floatFallSpeed"));
     } else if (s.move !== "stall") {
       let g = gravity;
       if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
@@ -307,6 +331,7 @@ export function Player() {
       s.jumping = false;
       s.lastGroundedAt = now;
       s.airJumpsUsed = 0;
+      s.flapsUsed = 0;
       s.move = "none";
     }
     s.grounded = groundedNow && s.vel.y <= 0;
@@ -331,7 +356,7 @@ export function Player() {
       s.vel.set(0, 0, 0);
       s.camTarget.copy(SPAWN);
       s.lastPos.copy(SPAWN);
-      s.move = "none"; s.airJumpsUsed = 0;
+      s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0;
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
 
@@ -340,7 +365,7 @@ export function Player() {
     if ((s.move === "long" || s.move === "wall") && hs > 0.1) {
       // Mid long jump / wall kick: face where you're flying
       s.facing += angleDiff(s.facing, Math.atan2(s.vel.x, s.vel.z)) * (1 - Math.exp(-20 * dt));
-    } else if (hasInput && hs > 0.1 && s.move === "none") {
+    } else if (hasInput && hs > 0.1 && (s.move === "none" || s.move === "float")) {
       const want = Math.atan2(dx, dz);
       s.facing += angleDiff(s.facing, want) * (1 - Math.exp(-num(S, "turnSpeed") * dt));
     }
@@ -355,7 +380,9 @@ export function Player() {
       s.sq += s.sqV * dt;
       const sy = THREE.MathUtils.clamp(1 + s.sq, 0.55, 1.6);
       const sxz = 1 / Math.sqrt(sy); // keep volume roughly constant
-      visual.current.scale.set(sxz, sy, sxz);
+      // Float: puff up rounder (wider more than taller), easing in and out
+      s.puff += ((s.move === "float" ? 1 : 0) - s.puff) * (1 - Math.exp(-10 * dt));
+      visual.current.scale.set(sxz * (1 + 0.35 * s.puff), sy * (1 + 0.12 * s.puff), sxz * (1 + 0.35 * s.puff));
     }
     if (tumble.current) {
       // Flip (air jump / ground pound) + forward lean (long jump), around the body's centre
@@ -517,7 +544,7 @@ export function Player() {
     if (silhouette.current) silhouette.current.visible = bool(S, "playerSilhouette");
 
     liveStats.speed = hs;
-    liveStats.move = s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : "wall jump";
+    liveStats.move = s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;
