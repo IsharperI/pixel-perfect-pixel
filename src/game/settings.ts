@@ -67,7 +67,7 @@ export const SETTINGS: SettingDef[] = [
   { key: "dust", label: "Dust Puffs", category: "Juice", kind: "boolean", default: true, description: "A puff of dust when you jump, and a ring of dust when you land. Bigger landings kick up more." },
   { key: "landingBump", label: "Landing Bump", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.35, description: "The camera dips slightly when you land, so heavy landings feel heavy. 0 turns it off." },
   { key: "skidEffects", label: "Skid Effects", category: "Juice", kind: "boolean", default: true, description: "When you turn sharply or reverse while running fast, your feet kick up a trail of dust and you hear a skid. It shows best on fast characters that turn slowly, like Sonic." },
-  { key: "skidSound", label: "Skid Sound", category: "Juice", kind: "choice", options: [{ value: "scuff", label: "Scuff" }, { value: "retro", label: "Retro" }, { value: "screech", label: "Screech" }], default: "scuff", description: "The sound a skid makes. Scuff is a soft shoe-scrape, Retro is a gritty 16-bit style brake (Sonic), and Screech is a tire squeal.", dependsOn: "skidEffects" },
+  { key: "skidSound", label: "Skid Sound", category: "Juice", kind: "choice", options: [{ value: "recorded", label: "Recorded" }, { value: "retro", label: "Retro" }, { value: "scuff", label: "Scuff" }, { value: "screech", label: "Screech" }], default: "recorded", description: "The sound a skid makes. Recorded plays the sound file in public/sounds/skid.mp3. Retro is a gritty 16-bit style brake, Scuff a soft shoe-scrape, and Screech a tire squeal.", dependsOn: "skidEffects" },
   { key: "sounds", label: "Sound Effects", category: "Juice", kind: "boolean", default: true, description: "Simple jump and landing sounds, generated in the browser." },
   { key: "soundVolume", label: "Volume", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "How loud the sound effects are.", dependsOn: "sounds" },
 ];
@@ -158,7 +158,6 @@ export const PRESETS: Preset[] = [
       jumpHeight: 3.4, timeToApex: 0.36, fallGravityMultiplier: 1.7, airControl: 0.55, maxFallSpeed: 40,
       coyoteTime: 0.1, jumpBuffer: 0.12,
       cameraDistance: 12, cameraHeight: 3.5, followSmoothing: 0.08, autoRotateSpeed: 3.5,
-      skidSound: "retro",
     },
   },
 ];

@@ -16,6 +16,7 @@ function audio(): AudioContext | null {
     const C = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!C) return null;
     ctx = new C();
+    preloadSamples(ctx);
   }
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
@@ -121,10 +122,49 @@ export function playExhale(volume: number) {
   n.stop(t + 0.25);
 }
 
-export type SkidStyle = "retro" | "scuff" | "screech";
+// ---- Recorded sounds (files in public/sounds/) ----------------------------
+const SAMPLE_URLS = { skid: `${import.meta.env.BASE_URL}sounds/skid.mp3` };
+const samples: Partial<Record<keyof typeof SAMPLE_URLS, AudioBuffer>> = {};
+let samplesRequested = false;
+
+/** Fetch and decode the recorded sounds once, in the background. */
+function preloadSamples(a: AudioContext) {
+  if (samplesRequested) return;
+  samplesRequested = true;
+  for (const [name, url] of Object.entries(SAMPLE_URLS) as [keyof typeof SAMPLE_URLS, string][]) {
+    fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((data) => a.decodeAudioData(data))
+      .then((buf) => { samples[name] = buf; })
+      .catch(() => { /* missing or unplayable file: callers fall back to a synthesized sound */ });
+  }
+}
+
+/** Play a recorded sound. Returns false if it isn't loaded (yet). */
+function playSample(name: keyof typeof SAMPLE_URLS, volume: number, rate = 1) {
+  const a = audio();
+  const buf = samples[name];
+  if (!a || !buf) return false;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  const g = a.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(a.destination);
+  src.start();
+  return true;
+}
+
+export type SkidStyle = "recorded" | "retro" | "scuff" | "screech";
 
 /** Skid sound in the chosen style. `strength` 0–1 scales it with speed. */
 export function playSkid(volume: number, strength: number, style: SkidStyle) {
+  if (style === "recorded") {
+    const k = Math.min(Math.max(strength, 0), 1);
+    // Slightly louder and higher-pitched at speed; synthesized retro if the file isn't ready yet
+    if (playSample("skid", (0.35 + 0.3 * k) * volume, 0.94 + 0.12 * k)) return;
+    return skidRetro(volume, strength);
+  }
   if (style === "retro") return skidRetro(volume, strength);
   if (style === "scuff") return skidScuff(volume, strength);
   return skidScreech(volume, strength);
