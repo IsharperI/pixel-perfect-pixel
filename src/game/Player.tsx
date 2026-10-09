@@ -78,8 +78,8 @@ export function Player() {
 
   useFrame((_, rawDt) => {
     const b = body.current, c = collider.current;
-    if (!b || !c) { if (Math.random() < 0.01) console.log("dbg refs", !!b, !!c); return; }
-    if (Math.random() < 0.01) console.log("dbg frame");
+    if (!b || !c) { return; }
+    (window as any).__f = ((window as any).__f ?? 0) + 1;
     const dt = Math.min(rawDt, 0.05);
     const now = performance.now() / 1000;
     const S = useSettings.getState().values;
