@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { liveStats, useUI } from "./settings";
 
 export function DebugOverlay() {
-  const { showDebug, showTrail, toggle } = useUI();
+  const { showDebug, showTrail, showGhost, toggle } = useUI();
   const [s, setS] = useState({ ...liveStats });
   useEffect(() => {
     const id = setInterval(() => setS({ ...liveStats }), 80);
@@ -15,6 +15,7 @@ export function DebugOverlay() {
         <span className="font-display text-sm font-bold tracking-tight">Platformer Toolkit 3D</span>
         <button className="chip" data-on={showDebug} onClick={() => toggle("showDebug")}>Debug</button>
         <button className="chip" data-on={showTrail} onClick={() => toggle("showTrail")}>Trail</button>
+        <button className="chip" data-on={showGhost} disabled={!showTrail} onClick={() => toggle("showGhost")} title="Show your previous jump arc, faded, to compare against the current one">Ghost</button>
       </div>
       {showDebug && (
         <div className="hud-card font-mono text-xs leading-relaxed">

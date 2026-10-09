@@ -52,7 +52,25 @@ export function Player() {
     const attr = g.getAttribute("position") as THREE.BufferAttribute;
     return { geo: g, attr, count: 0, acc: 0 };
   }, []);
+  // Ghost: a faded copy of the previous jump arc, for before/after comparison
+  const ghost = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3));
+    g.setDrawRange(0, 0);
+    const attr = g.getAttribute("position") as THREE.BufferAttribute;
+    return { geo: g, attr };
+  }, []);
+  /** Start a fresh arc, keeping the old one as the ghost if it was a real arc. */
+  const archiveTrail = () => {
+    if (trail.count > 4) {
+      (ghost.attr.array as Float32Array).set((trail.attr.array as Float32Array).subarray(0, trail.count * 3));
+      ghost.attr.needsUpdate = true;
+      ghost.geo.setDrawRange(0, trail.count);
+    }
+    trail.count = 0;
+  };
   const showTrail = useUI((s) => s.showTrail);
+  const showGhost = useUI((s) => s.showGhost);
 
   // Mouse-drag orbit
   useEffect(() => {
@@ -122,7 +140,7 @@ export function Player() {
       s.grounded = false;
       s.lastGroundedAt = -Infinity;
       input.jumpPressedAt = -Infinity;
-      trail.count = 0; // fresh arc
+      archiveTrail(); // fresh arc; previous one becomes the ghost
     }
     let g = gravity;
     if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
@@ -189,7 +207,7 @@ export function Player() {
     // ---- trail
     const airborne = !s.grounded;
     if (airborne) {
-      if (!s.wasAirborne && !s.jumping) trail.count = 0; // walked off a ledge
+      if (!s.wasAirborne && !s.jumping) archiveTrail(); // walked off a ledge
       trail.acc += dt;
       if (trail.acc > 1 / 60 && trail.count < TRAIL_MAX) {
         trail.acc = 0;
@@ -291,6 +309,9 @@ export function Player() {
         <meshBasicMaterial color="#1d2433" transparent opacity={0.45} depthWrite={false} polygonOffset polygonOffsetFactor={-4} />
       </mesh>
 
+      <points geometry={ghost.geo} visible={showTrail && showGhost} frustumCulled={false}>
+        <pointsMaterial color="#8a7fd6" size={0.12} sizeAttenuation transparent opacity={0.4} depthWrite={false} />
+      </points>
       <points geometry={trail.geo} visible={showTrail} frustumCulled={false}>
         <pointsMaterial color="#2bb3a3" size={0.14} sizeAttenuation />
       </points>

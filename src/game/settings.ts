@@ -44,6 +44,76 @@ export type SettingValues = Record<string, number | boolean>;
 export const defaultValues = (): SettingValues =>
   Object.fromEntries(SETTINGS.map((s) => [s.key, s.default]));
 
+export type Preset = { name: string; description: string; values: SettingValues };
+
+// Each preset only lists what it changes; anything left out uses the default.
+// These are hand-tuned to capture the *feel* of each style, not measured from the games.
+export const PRESETS: Preset[] = [
+  { name: "Default", description: "A balanced starting point.", values: {} },
+  {
+    name: "Mario 64",
+    description: "Momentum-heavy running, big committed jumps, limited air steering, and a lazy trailing camera.",
+    values: {
+      maxSpeed: 9, acceleration: 22, deceleration: 30, turnSpeed: 7,
+      jumpHeight: 3.2, timeToApex: 0.42, fallGravityMultiplier: 1.5, airControl: 0.35, maxFallSpeed: 30,
+      coyoteTime: 0.08, jumpBuffer: 0.1,
+      cameraDistance: 9, cameraHeight: 3.5, followSmoothing: 0.22, leashSwing: 1, autoRotate: true, autoRotateSpeed: 1.5,
+    },
+  },
+  {
+    name: "Jak & Daxter",
+    description: "Responsive, quick-turning movement with a fairly short jump and generous air control.",
+    values: {
+      maxSpeed: 10, acceleration: 60, deceleration: 70, turnSpeed: 16,
+      jumpHeight: 2.6, timeToApex: 0.34, fallGravityMultiplier: 1.8, airControl: 0.75, maxFallSpeed: 28,
+      coyoteTime: 0.12, jumpBuffer: 0.12,
+      cameraDistance: 8, cameraHeight: 3, followSmoothing: 0.12, leashSwing: 1, autoRotate: true, autoRotateSpeed: 2.5,
+    },
+  },
+  {
+    name: "Floaty",
+    description: "Slow, drifty and dreamlike. Long hang time, gentle falls, lots of air control.",
+    values: {
+      maxSpeed: 6, acceleration: 14, deceleration: 12, turnSpeed: 6,
+      jumpHeight: 4, timeToApex: 0.8, fallGravityMultiplier: 1, airControl: 0.9, maxFallSpeed: 10,
+      coyoteTime: 0.15, jumpBuffer: 0.15,
+      followSmoothing: 0.35,
+    },
+  },
+  {
+    name: "Tight & Snappy",
+    description: "Instant starts and stops, fast short jumps that fall hard, and full air control.",
+    values: {
+      maxSpeed: 11, acceleration: 140, deceleration: 160, turnSpeed: 30,
+      jumpHeight: 2.8, timeToApex: 0.28, fallGravityMultiplier: 2.6, airControl: 1, maxFallSpeed: 40,
+      coyoteTime: 0.1, jumpBuffer: 0.12,
+      followSmoothing: 0.06,
+    },
+  },
+  {
+    name: "Heavy",
+    description: "A weighty character that's slow to get going, can barely steer in the air, and always jumps the same height.",
+    values: {
+      maxSpeed: 7, acceleration: 10, deceleration: 9, turnSpeed: 4,
+      jumpHeight: 1.6, timeToApex: 0.38, fallGravityMultiplier: 1.3, variableJumpHeight: false, airControl: 0.15,
+      coyoteTime: 0.03, jumpBuffer: 0.05,
+      followSmoothing: 0.3,
+    },
+  },
+];
+
+/** Full value set a preset produces (defaults + its overrides). */
+export const presetValues = (p: Preset): SettingValues => ({ ...defaultValues(), ...p.values });
+
+/** Name of the preset the current values exactly match, or null if they've been customised. */
+export const matchingPreset = (v: SettingValues): string | null => {
+  for (const p of PRESETS) {
+    const pv = presetValues(p);
+    if (SETTINGS.every((s) => pv[s.key] === v[s.key])) return p.name;
+  }
+  return null;
+};
+
 type Store = {
   values: SettingValues;
   set: (key: string, v: number | boolean) => void;
@@ -84,12 +154,14 @@ type UI = {
   panelOpen: boolean;
   showDebug: boolean;
   showTrail: boolean;
-  toggle: (k: "panelOpen" | "showDebug" | "showTrail") => void;
+  showGhost: boolean;
+  toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost") => void;
 };
 export const useUI = create<UI>((set) => ({
   panelOpen: true,
   showDebug: true,
   showTrail: true,
+  showGhost: true,
   toggle: (k) => set((s) => ({ [k]: !s[k] }) as Partial<UI>),
 }));
 

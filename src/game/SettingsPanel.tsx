@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { SETTINGS, useSettings, useUI, type SettingDef } from "./settings";
+import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
 
 const CATEGORIES = ["Movement", "Jump", "Camera"] as const;
 
@@ -39,6 +39,7 @@ export function SettingsPanel() {
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Inspector</p>
           <h2 className="font-display text-xl font-bold tracking-tight">Movement Feel</h2>
         </header>
+        <Presets onApply={(name) => flash(`Loaded "${name}" preset`)} />
         <div className="flex-1 overflow-y-auto px-3 py-3">
           {CATEGORIES.map((c) => (
             <Section key={c} title={c} defs={SETTINGS.filter((s) => s.category === c)} />
@@ -53,6 +54,33 @@ export function SettingsPanel() {
         </footer>
       </aside>
     </>
+  );
+}
+
+function Presets({ onApply }: { onApply: (name: string) => void }) {
+  const values = useSettings((s) => s.values);
+  const load = useSettings((s) => s.load);
+  const active = matchingPreset(values);
+  return (
+    <div className="border-b border-border px-5 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Presets</p>
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{active ?? "Custom"}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {PRESETS.map((p) => (
+          <button
+            key={p.name}
+            className="preset-chip"
+            data-on={active === p.name}
+            title={p.description}
+            onClick={() => { load(presetValues(p)); onApply(p.name); }}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
