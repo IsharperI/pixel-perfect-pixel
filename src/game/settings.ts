@@ -148,6 +148,16 @@ export const PRESETS: Preset[] = [
       float: true, floatFlaps: 6, flapLift: 6.5, floatFallSpeed: 1.75, floatMoveSpeed: 0.55,
     },
   },
+  {
+    name: "Sonic",
+    description: "Built for speed. A slow build-up to a very high top speed, wide turns when going fast, a quick snappy jump, and the camera pulled back so you can see what's coming.",
+    values: {
+      maxSpeed: 22, acceleration: 16, deceleration: 28, turnSpeed: 8,
+      jumpHeight: 3.4, timeToApex: 0.36, fallGravityMultiplier: 1.7, airControl: 0.55, maxFallSpeed: 40,
+      coyoteTime: 0.1, jumpBuffer: 0.12,
+      cameraDistance: 12, cameraHeight: 3.5, followSmoothing: 0.08, autoRotateSpeed: 3.5,
+    },
+  },
 ];
 
 /** Full value set a preset produces (defaults + its overrides). */
