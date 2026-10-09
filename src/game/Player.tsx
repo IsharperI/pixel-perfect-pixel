@@ -204,9 +204,16 @@ export function Player() {
 
     // ---- camera
     if (bool(S, "autoRotate") && hs > 0.5 && now - input.lastOrbitAt > 1) {
-      const want = Math.atan2(s.vel.x, s.vel.z) + Math.PI;
-      const k = 1 - Math.exp(-num(S, "autoRotateSpeed") * (hs / maxSpeed) * dt);
-      s.camYaw += angleDiff(s.camYaw, want) * k;
+      // Only swing behind the player when they run AWAY from the camera.
+      // Running toward the camera or sideways would otherwise make the camera
+      // chase the player, which turns camera-relative input, which curves the
+      // player — a feedback loop that spins in circles.
+      const awayFromCam = (s.vel.x * fx + s.vel.z * fz) / hs; // 1 = straight away, 0 = sideways, -1 = toward
+      if (awayFromCam > 0) {
+        const want = Math.atan2(s.vel.x, s.vel.z) + Math.PI;
+        const k = 1 - Math.exp(-num(S, "autoRotateSpeed") * (hs / maxSpeed) * awayFromCam * dt);
+        s.camYaw += angleDiff(s.camYaw, want) * k;
+      }
     }
     const smooth = num(S, "followSmoothing");
     const fk = smooth <= 0.001 ? 1 : 1 - Math.exp(-dt / smooth);
