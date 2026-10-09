@@ -369,11 +369,24 @@ export function Player() {
       if (bool(S, "dust")) spawnDust(next.x, next.y - (HALF + RADIUS) + 0.08, next.z, Math.round(10 + 10 * strength), 3 + 4 * strength, 0.16 + 0.12 * strength);
       if (bool(S, "sounds")) playLand(num(S, "soundVolume"), strength);
     }
-    // Stop velocity into walls
+    // Stop velocity into walls. Uses the physics engine's contact reports, so
+    // only speed pushing INTO a near-vertical surface we were actually blocked
+    // by is removed. Slopes and small steps redirect movement upward rather
+    // than blocking it, so they no longer drain speed (which used to stall
+    // slow-accelerating characters like Sonic on slopes, worse at high frame rates).
     if (dt > 0) {
-      const ax = m.x / dt, az = m.z / dt;
-      if (Math.abs(ax) < Math.abs(s.vel.x) - 0.01) s.vel.x = ax;
-      if (Math.abs(az) < Math.abs(s.vel.z) - 0.01) s.vel.z = az;
+      for (let i = 0; i < controller.numComputedCollisions(); i++) {
+        const col = controller.computedCollision(i);
+        if (!col || Math.abs(col.normal1.y) > 0.5) continue; // floors and climbable slopes aren't walls
+        const nl = Math.hypot(col.normal1.x, col.normal1.z) || 1;
+        const nx = col.normal1.x / nl, nz = col.normal1.z / nl; // points out of the wall, toward us
+        const into = s.vel.x * nx + s.vel.z * nz; // negative = pushing into the wall
+        if (into >= 0) continue;
+        const moved = (m.x * nx + m.z * nz) / dt; // how much we actually got through
+        if (moved > into * 0.5) { // mostly blocked (a step we climbed would let us through)
+          s.vel.x -= nx * into; s.vel.z -= nz * into; // keep only the slide along the wall
+        }
+      }
     }
 
     if (next.y < -25) {
