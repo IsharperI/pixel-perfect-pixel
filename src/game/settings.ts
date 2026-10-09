@@ -66,6 +66,8 @@ export const SETTINGS: SettingDef[] = [
   { key: "squashStretch", label: "Squash & Stretch", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "The character stretches as it jumps and squashes when it lands, then springs back. Harder landings squash more. 0 turns it off." },
   { key: "dust", label: "Dust Puffs", category: "Juice", kind: "boolean", default: true, description: "A puff of dust when you jump, and a ring of dust when you land. Bigger landings kick up more." },
   { key: "landingBump", label: "Landing Bump", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.35, description: "The camera dips slightly when you land, so heavy landings feel heavy. 0 turns it off." },
+  { key: "speedFov", label: "Speed FOV", category: "Juice", kind: "number", min: 0, max: 1, step: 0.05, default: 0.5, description: "The camera's view widens as you go faster, which makes speed feel faster. Kicks in above a jog, so it shows most on fast characters like Sonic. 0 turns it off." },
+  { key: "speedLines", label: "Speed Lines", category: "Juice", kind: "boolean", default: true, description: "Streaks around the edges of the screen at high speed, fading in as you get faster." },
   { key: "skidEffects", label: "Skid Effects", category: "Juice", kind: "boolean", default: true, description: "When you turn sharply or reverse while running fast, your feet kick up a trail of dust and you hear a skid. It shows best on fast characters that turn slowly, like Sonic." },
   { key: "skidSound", label: "Skid Sound", category: "Juice", kind: "choice", options: [{ value: "retro", label: "Retro" }, { value: "scuff", label: "Scuff" }, { value: "screech", label: "Screech" }], default: "retro", description: "The sound a skid makes. Retro is a gritty 16-bit style brake, Scuff a soft shoe-scrape, and Screech a tire squeal.", dependsOn: "skidEffects" },
   { key: "sounds", label: "Sound Effects", category: "Juice", kind: "boolean", default: true, description: "Simple jump and landing sounds, generated in the browser." },
@@ -228,4 +230,4 @@ export const useUI = create<UI>((set) => ({
 }));
 
 /** Mutable live stats written by the player each frame, polled by the HUD. */
-export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0, move: "—" };
+export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0, move: "—", speedT: 0 };

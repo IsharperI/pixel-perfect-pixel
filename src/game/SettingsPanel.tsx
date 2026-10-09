@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useHighlighted } from "./tutorial";
 import { events } from "./events";
+import { toCharacterFile, readCharacterFile } from "./characterFile";
 import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
 
 const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Juice"] as const;
@@ -15,7 +16,7 @@ export function SettingsPanel() {
   const flash = (m: string) => { setNote(m); setTimeout(() => setNote(null), 2200); };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify(values, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(toCharacterFile(values), null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "platformer-settings.json";
@@ -24,7 +25,9 @@ export function SettingsPanel() {
   };
   const importJson = async (f: File) => {
     try {
-      const n = load(JSON.parse(await f.text()));
+      const settings = readCharacterFile(JSON.parse(await f.text()));
+      if (!settings) throw new Error("not a character file");
+      const n = load(settings);
       flash(`Loaded ${n} settings`);
     } catch {
       flash("That file isn't valid settings JSON");

@@ -9,6 +9,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { DebugOverlay } from "./DebugOverlay";
 import { Tutorial } from "./TutorialOverlay";
 import { AppRibbon } from "../components/AppRibbon";
+import { SpeedLines } from "./SpeedLines";
 
 export function GameCanvas() {
   useInputListeners();
@@ -43,6 +44,7 @@ export function GameCanvas() {
           </Physics>
         </Suspense>
       </Canvas>
+      <SpeedLines />
       <DebugOverlay />
       <SettingsPanel />
       <Tutorial />

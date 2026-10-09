@@ -65,6 +65,7 @@ export function Player() {
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
     skidding: false, skidDustAcc: 0, lastSkidSoundAt: -Infinity, // skid effects
+    speedT: 0, fov: 60, // speed effects: smoothed 0–1 "how fast" + current field of view
     wasAirborne: false,
     // ---- moves
     move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
@@ -583,6 +584,15 @@ export function Player() {
     // Never let the camera dip under the floor.
     if (camera.position.y < 0.4) camera.position.y = 0.4;
     camera.lookAt(s.camTarget.x, lookY + s.bump * 0.5, s.camTarget.z);
+
+    // Speed effects: 0 at a jog (6 u/s) up to 1 at 22 u/s, eased so it swells and settles smoothly
+    const speedNow = Math.hypot(s.vel.x, s.vel.z);
+    s.speedT += (THREE.MathUtils.clamp((speedNow - 6) / 16, 0, 1) - s.speedT) * (1 - Math.exp(-4 * dt));
+    const wantFov = 60 + 22 * s.speedT * num(S, "speedFov");
+    s.fov += (wantFov - s.fov) * (1 - Math.exp(-6 * dt));
+    const pc = camera as THREE.PerspectiveCamera;
+    if (Math.abs(pc.fov - s.fov) > 0.01) { pc.fov = s.fov; pc.updateProjectionMatrix(); }
+    liveStats.speedT = s.speedT;
 
     // Fade mode: anything between the player and the camera (or around the
     // camera) turns see-through. Rays from feet, middle and head so partly

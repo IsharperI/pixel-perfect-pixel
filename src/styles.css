@@ -172,6 +172,21 @@
   .app-tab { display: flex; align-items: center; gap: .45rem; padding: 0 .85rem; font-size: .8rem; font-weight: 600; color: var(--muted-foreground); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; white-space: nowrap; }
   .app-tab:hover { color: var(--foreground); }
   .app-tab[data-active="true"] { color: var(--foreground); border-bottom-color: var(--primary); }
-  @media (max-width: 560px) { .app-ribbon-title { display: none; } .app-ribbon { padding: 0 .5rem; } .app-tab { padding: 0 .6rem; } }
+  @media (max-width: 760px) { .app-ribbon-title { display: none; } }
+  @media (max-width: 560px) { .app-ribbon { padding: 0 .5rem; gap: .75rem; } .app-tab { padding: 0 .6rem; } }
+  @media (max-width: 480px) { .app-ribbon { gap: .5rem; } .app-tab svg { display: none; } .app-tab { padding: 0 .45rem; font-size: .75rem; } .app-saveload { padding-right: .45rem; } }
+  .app-saveload { position: relative; display: flex; align-items: center; gap: .3rem; padding-right: 1rem; margin-right: -.25rem; border-right: 1px solid var(--border); height: 60%; }
+  .ribbon-btn { display: flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 600; padding: .32rem .6rem; border-radius: .5rem; background: var(--secondary); border: 1px solid var(--border); transition: all .15s; }
+  .ribbon-btn:hover:not(:disabled) { background: var(--foreground); color: var(--card); }
+  .ribbon-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .ribbon-note { position: absolute; top: calc(100% + 10px); left: 0; z-index: 60; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .5rem; background: var(--foreground); color: var(--card); box-shadow: var(--shadow-panel); }
+  .ribbon-note[data-ok="false"] { background: oklch(0.55 0.18 25); }
+  @media (max-width: 720px) { .ribbon-btn span { display: none; } .app-saveload { padding-right: .6rem; } }
+  .speed-lines { position: absolute; inset: -25%; z-index: 5; pointer-events: none; opacity: 0; will-change: opacity, transform;
+    /* White streaks with a faint dark edge, so they read on both bright sky and darker scenery */
+    background: repeating-conic-gradient(from 0deg at 50% 50%,
+      transparent 0deg 1.9deg, oklch(0.35 0.02 250 / .22) 1.9deg 2.05deg, oklch(1 0 0 / .95) 2.05deg 2.45deg, oklch(0.35 0.02 250 / .22) 2.45deg 2.6deg,
+      transparent 2.6deg 4.3deg, oklch(1 0 0 / .7) 4.3deg 4.55deg, transparent 4.55deg 7deg);
+    -webkit-mask-image: radial-gradient(ellipse closest-side, transparent 52%, black 100%); mask-image: radial-gradient(ellipse closest-side, transparent 52%, black 100%); }
   .tool-btn:hover { background: var(--foreground); color: var(--card); }
 }
