@@ -137,8 +137,12 @@ export function Player() {
   useEffect(() => {
     const el = gl.domElement;
     let dragging = false;
-    const downH = (e: PointerEvent) => { dragging = true; el.setPointerCapture(e.pointerId); };
-    const upH = (e: PointerEvent) => { dragging = false; el.releasePointerCapture?.(e.pointerId); };
+    const downH = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return; // touch has its own controls (TouchControls.tsx)
+      dragging = true;
+      el.setPointerCapture(e.pointerId);
+    };
+    const upH = (e: PointerEvent) => { if (!dragging) return; dragging = false; el.releasePointerCapture?.(e.pointerId); };
     const moveH = (e: PointerEvent) => {
       if (!dragging) return;
       input.orbitDX += e.movementX;
@@ -217,7 +221,9 @@ export function Player() {
     // ---- jump & gravity
     const { gravity, jumpVelocity } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
     const canCoyote = now - s.lastGroundedAt <= num(S, "coyoteTime");
-    const buffered = now - input.jumpPressedAt <= Math.max(num(S, "jumpBuffer"), dt);
+    // A press made since the last frame always counts, even if that frame took a long
+    // time (slow device, a hitch); otherwise the Jump Buffer window applies.
+    const buffered = now - input.jumpPressedAt <= Math.max(num(S, "jumpBuffer"), rawDt + 0.02);
     /** Velocity needed to rise `h` units under the current upward gravity. */
     const launch = (h: number) => Math.sqrt(2 * gravity * Math.max(h, 0));
     /** Shared juice for any take-off: stretch pop, dust puff, sound. */
@@ -291,7 +297,7 @@ export function Player() {
 
     // EXHALE: Shift while floating drops you out of the float. Consumes the press,
     // so a second Shift press is needed for a ground pound.
-    if (s.move === "float" && now - input.crouchPressedAt <= 0.25) {
+    if (s.move === "float" && now - input.crouchPressedAt <= Math.max(0.25, rawDt + 0.02)) {
       input.crouchPressedAt = -Infinity;
       s.move = "none";
       s.vel.y = Math.min(s.vel.y, 0);
@@ -300,7 +306,7 @@ export function Player() {
     }
 
     // GROUND POUND: Shift in mid-air → flip and hang, then slam
-    if (bool(S, "groundPound") && !s.grounded && !busyPounding && now - input.crouchPressedAt <= 0.25) {
+    if (bool(S, "groundPound") && !s.grounded && !busyPounding && now - input.crouchPressedAt <= Math.max(0.25, rawDt + 0.02)) {
       input.crouchPressedAt = -Infinity;
       s.move = "stall"; s.variableOk = false;
       events.pounds++; s.trackJump = false;

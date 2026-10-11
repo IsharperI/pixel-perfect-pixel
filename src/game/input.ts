@@ -8,7 +8,17 @@ export const input = {
   orbitDX: 0,
   orbitDY: 0,
   lastOrbitAt: -Infinity,
+  // On-screen touch controls (see TouchControls.tsx). Stick is -1..1, +y = forward.
+  touch: { x: 0, y: 0, jumpHeld: false, crouchHeld: false },
 };
+
+/** Let go of everything the touch controls are holding. */
+export function resetTouch() {
+  input.touch.x = 0;
+  input.touch.y = 0;
+  input.touch.jumpHeld = false;
+  input.touch.crouchHeld = false;
+}
 
 const MOVE = ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "ShiftLeft", "ShiftRight"];
 
@@ -16,8 +26,10 @@ export function readMove() {
   const k = input.keys;
   let x = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
   let y = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
-  let jumpHeld = k.has("Space");
-  let crouchHeld = k.has("ShiftLeft") || k.has("ShiftRight");
+  let jumpHeld = k.has("Space") || input.touch.jumpHeld;
+  let crouchHeld = k.has("ShiftLeft") || k.has("ShiftRight") || input.touch.crouchHeld;
+  x += input.touch.x;
+  y += input.touch.y;
   let camX = 0, camY = 0;
   const pads = typeof navigator !== "undefined" && navigator.getGamepads ? navigator.getGamepads() : [];
   for (const p of pads) {
@@ -53,6 +65,8 @@ export function useInputListeners() {
     };
     const down = (e: KeyboardEvent) => {
       if (isTyping()) return;
+      // Using a keyboard: hide the on-screen touch controls
+      if (useUI.getState().touchMode) { useUI.getState().setTouchMode(false); resetTouch(); }
       if (e.code === "KeyT" && !e.repeat) { useUI.getState().toggle("panelOpen"); return; }
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys
@@ -64,11 +78,17 @@ export function useInputListeners() {
       }
     };
     const up = (e: KeyboardEvent) => input.keys.delete(e.code);
-    const blur = () => input.keys.clear();
+    const blur = () => { input.keys.clear(); resetTouch(); };
+    // First touch anywhere: show the on-screen controls
+    const touchStart = (e: PointerEvent) => {
+      if (e.pointerType === "touch" && !useUI.getState().touchMode) useUI.getState().setTouchMode(true);
+    };
+    window.addEventListener("pointerdown", touchStart, true);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     return () => {
+      window.removeEventListener("pointerdown", touchStart, true);
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);

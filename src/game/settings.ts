@@ -232,13 +232,17 @@ type UI = {
   showDebug: boolean;
   showTrail: boolean;
   showGhost: boolean;
+  touchMode: boolean; // on-screen touch controls showing
   toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost") => void;
+  setTouchMode: (on: boolean) => void;
 };
 export const useUI = create<UI>((set) => ({
   panelOpen: true,
   showDebug: true,
   showTrail: true,
   showGhost: true,
+  touchMode: false,
+  setTouchMode: (on) => set({ touchMode: on }),
   toggle: (k) => set((s) => ({ [k]: !s[k] }) as Partial<UI>),
 }));
 

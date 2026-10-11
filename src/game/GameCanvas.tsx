@@ -10,6 +10,7 @@ import { DebugOverlay } from "./DebugOverlay";
 import { Tutorial } from "./TutorialOverlay";
 import { AppRibbon } from "../components/AppRibbon";
 import { SpeedLines } from "./SpeedLines";
+import { TouchControls } from "./TouchControls";
 
 export function GameCanvas() {
   useInputListeners();
@@ -46,6 +47,7 @@ export function GameCanvas() {
         </Suspense>
       </Canvas>
       <SpeedLines />
+      <TouchControls />
       <DebugOverlay />
       <SettingsPanel />
       <Tutorial />

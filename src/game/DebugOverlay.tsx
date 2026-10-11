@@ -3,7 +3,7 @@ import { liveStats, useUI } from "./settings";
 import { useTutorial } from "./tutorial";
 
 export function DebugOverlay() {
-  const { showDebug, showTrail, showGhost, toggle } = useUI();
+  const { showDebug, showTrail, showGhost, touchMode, toggle } = useUI();
   const [s, setS] = useState({ ...liveStats });
   useEffect(() => {
     const id = setInterval(() => setS({ ...liveStats }), 80);
@@ -29,7 +29,9 @@ export function DebugOverlay() {
         </div>
       )}
       <div className="hud-card text-xs text-muted-foreground">
-        <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings
+        {touchMode
+          ? <>Left thumb: move · <b>Jump</b> / <b>Crouch</b> buttons · swipe right side to look</>
+          : <><kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
       </div>
     </div>
   );
