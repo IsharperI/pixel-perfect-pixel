@@ -2,6 +2,8 @@ import { useEffect, useId, useRef } from "react";
 import * as THREE from "three";
 import { RigidBody } from "@react-three/rapier";
 import { registerFade } from "./fade";
+import { Targets } from "./Targets";
+import { CHAIN_X } from "./targets";
 import { Grid, Html } from "@react-three/drei";
 
 type V3 = [number, number, number];
@@ -107,6 +109,25 @@ export function Level() {
       <Label pos={[-24, 1.5, 1]} text="SLOPE" />
       <Block pos={[-24, 3.75, -18]} size={[1, 0.5, 12]} color="#ef8fb7" />
       <Label pos={[-24, 5.2, -23.5]} text="NARROW LEDGE — walk off" />
+
+      {/* Steepness test ramps: each rises 4 units toward -z, with a landing on top */}
+      {([30, 45, 60] as const).map((deg, i) => {
+        const h = 4, run = h / Math.tan((deg * Math.PI) / 180), x = -30 - i * 4.5;
+        return (
+          <group key={deg}>
+            <Block pos={[x, h / 2 - 0.25, -run / 2]} size={[3, 0.5, Math.hypot(run, h) + 0.3]} rot={[Math.atan2(h, run), 0, 0]} color={colorAt(i + 3)} />
+            <Block pos={[x, h - 0.25, -run - 1.5]} size={[3, 0.5, 3]} color={colorAt(i + 3)} />
+            <Label pos={[x, 1.2, 1.6]} text={`${deg}°`} />
+          </group>
+        );
+      })}
+      <Label pos={[-34.5, 6, -4]} text="RAMPS" />
+
+      {/* Homing attack chain: floating targets rising to a high platform */}
+      <Targets />
+      {/* Landing just past the last target: the bounce carries you onto it */}
+      <Block pos={[CHAIN_X, 10.5, -14]} size={[4, 0.5, 4]} color={colorAt(4)} />
+      <Label pos={[CHAIN_X + 2.5, 5, 9]} text="HOMING CHAIN" />
     </group>
   );
 }

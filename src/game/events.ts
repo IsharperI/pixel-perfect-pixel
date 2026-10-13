@@ -15,6 +15,7 @@ export const events = {
   pounds: 0,
   wallJumps: 0,
   flaps: 0,
+  homingHits: 0,
   presetLoads: 0,
 };
 

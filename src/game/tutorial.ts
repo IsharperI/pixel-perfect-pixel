@@ -181,6 +181,15 @@ export const STEPS: Step[] = [
     done: (e) => e.flaps >= 3,
   },
   {
+    chapter: "Moves",
+    title: "Homing attack",
+    body: "In mid-air, a red reticle locks onto the nearest target in range. Press jump to dash straight to it and bounce off, then lock onto the next one. Chaining them lets you climb where no jump could reach.",
+    tryIt: "Go to the HOMING CHAIN, right of the tall wall. Jump at the first target, then keep pressing jump as each reticle appears to climb to the top.",
+    setup: { float: false, homingAttack: true },
+    highlight: ["homingAttack", "homingRange", "homingBounce"],
+    done: (e) => e.homingHits >= 2,
+  },
+  {
     chapter: "Your turn",
     title: "Presets and beyond",
     body: "Presets load a whole personality at once: Mario 64, Jak & Daxter, Kirby and more. Start from one, then tweak. Export saves your settings to a file, and Import loads them back.",

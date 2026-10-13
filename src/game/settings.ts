@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { CUSTOM_MODEL_NAME } from "./characterModel";
 
 export type SettingDef = {
   key: string;
@@ -16,6 +17,8 @@ export type SettingDef = {
   /** Only show when this setting is on (boolean) or equals `showWhen` */
   dependsOn?: string;
   showWhen?: string;
+  /** Hide the setting entirely when false (e.g. it needs a file that isn't there) */
+  available?: boolean;
 };
 
 // Add a new tunable by adding ONE entry here — the panel is generated from it.
@@ -26,6 +29,9 @@ export const SETTINGS: SettingDef[] = [
   { key: "turnSpeed", label: "Turn Speed", category: "Movement", kind: "number", min: 1, max: 40, step: 0.5, default: 12, description: "How fast the character rotates to face the direction it's moving." },
   { key: "runButton", label: "Walk Toggle", category: "Movement", kind: "boolean", default: true, description: "Adds a slower walk. Keyboard: you run at Max Speed by default; tap Z to switch to walking and back. Touch and gamepad: push the stick part way to walk, all the way to run. Off = always full speed." },
   { key: "walkSpeed", label: "Walk Speed", category: "Movement", kind: "number", min: 0.2, max: 1, step: 0.05, unit: "×", default: 0.5, description: "How fast walking is, as a fraction of Max Speed.", dependsOn: "runButton" },
+  { key: "maxSlope", label: "Max Slope", category: "Movement", kind: "number", min: 15, max: 80, step: 1, unit: "°", default: 50, description: "The steepest slope the character can walk up. Steeper ones act like walls. Try the 30°, 45° and 60° ramps." },
+  { key: "slideSlope", label: "Slide Angle", category: "Movement", kind: "number", min: 15, max: 85, step: 1, unit: "°", default: 55, description: "Slopes steeper than this make the character slide down instead of standing on them." },
+  { key: "slopeMomentum", label: "Slope Momentum", category: "Movement", kind: "number", min: 0, max: 1, step: 0.05, default: 0.3, description: "How much slopes affect your speed: slower going uphill, faster going downhill. Downhill can push you past Max Speed. 0 = slopes don't matter." },
 
   { key: "jumpHeight", label: "Jump Height", category: "Jump", kind: "number", min: 0.5, max: 10, step: 0.1, unit: "u", default: 3, description: "How high a full jump reaches, in world units." },
   { key: "timeToApex", label: "Time to Apex", category: "Jump", kind: "number", min: 0.1, max: 1.5, step: 0.01, unit: "s", default: 0.4, description: "Seconds to reach the top of a jump. Lower feels snappier, higher feels floatier." },
@@ -54,6 +60,10 @@ export const SETTINGS: SettingDef[] = [
   { key: "flapLift", label: "Flap Lift", category: "Moves", kind: "number", min: 2, max: 12, step: 0.5, unit: "u/s", default: 6, description: "How much each flap lifts you.", dependsOn: "float" },
   { key: "floatFallSpeed", label: "Float Fall Speed", category: "Moves", kind: "number", min: 0.5, max: 6, step: 0.25, unit: "u/s", default: 2, description: "The fastest you sink while floating. Lower feels more like hovering.", dependsOn: "float" },
   { key: "floatMoveSpeed", label: "Float Move Speed", category: "Moves", kind: "number", min: 0.2, max: 1, step: 0.05, unit: "×", default: 0.55, description: "How fast you can move sideways while floating, compared to running.", dependsOn: "float" },
+  { key: "homingAttack", label: "Homing Attack", category: "Moves", kind: "boolean", default: false, description: "In mid-air, a reticle locks onto the nearest target in range. Press jump to dash straight to it and bounce off, ready to chain to the next (like Sonic). Try the HOMING CHAIN, right of the tall wall." },
+  { key: "homingRange", label: "Lock-On Range", category: "Moves", kind: "number", min: 3, max: 15, step: 0.5, unit: "u", default: 8, description: "How far away a target can be to lock onto it.", dependsOn: "homingAttack" },
+  { key: "homingSpeed", label: "Dash Speed", category: "Moves", kind: "number", min: 10, max: 50, step: 1, unit: "u/s", default: 30, description: "How fast you fly to the target.", dependsOn: "homingAttack" },
+  { key: "homingBounce", label: "Bounce Height", category: "Moves", kind: "number", min: 0.5, max: 6, step: 0.1, unit: "u", default: 2.5, description: "How high you bounce off a target you hit.", dependsOn: "homingAttack" },
 
   { key: "cameraDistance", label: "Distance", category: "Camera", kind: "number", min: 2, max: 25, step: 0.5, unit: "u", default: 8, description: "How far the camera sits from the player." },
   { key: "cameraHeight", label: "Height", category: "Camera", kind: "number", min: 0, max: 15, step: 0.25, unit: "u", default: 3, description: "How high above the player the camera sits." },
@@ -65,6 +75,7 @@ export const SETTINGS: SettingDef[] = [
   { key: "fadeOpacity", label: "Fade Opacity", category: "Camera", kind: "number", min: 0, max: 0.9, step: 0.05, default: 0.25, description: "How visible blocking objects stay when faded. 0 is invisible.", dependsOn: "cameraObstruction", showWhen: "fade" },
   { key: "playerSilhouette", label: "Player Silhouette", category: "Camera", kind: "boolean", default: true, description: "Shows the player as a coloured outline whenever something hides them, so you never lose track of where you are." },
 
+  { key: "customModel", label: "Custom Model", category: "Animation", kind: "boolean", default: true, description: `Use your own character model (${CUSTOM_MODEL_NAME ?? "none found"}, from src/game/models) instead of the capsule.`, available: CUSTOM_MODEL_NAME !== null },
   { key: "floatingLimbs", label: "Floating Limbs", category: "Animation", kind: "boolean", default: true, description: "Detached hands and feet that float around the body: the feet run in little loops, the hands swing, and both strike poses for jumps and moves." },
   { key: "turnLean", label: "Turn Lean", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.4, description: "How much the character banks into turns, like a cyclist. Grows with speed, so fast characters lean hardest." },
   { key: "accelLean", label: "Acceleration Lean", category: "Animation", kind: "number", min: 0, max: 1, step: 0.05, default: 0.3, description: "Tip forward when speeding up and rock back when braking." },
@@ -152,6 +163,7 @@ export const PRESETS: Preset[] = [
       followSmoothing: 0.3,
       groundPound: true, poundStall: 0.1, poundSpeed: 50,
       turnLean: 0.1, accelLean: 0.15, runBob: 0.15, armSwing: 0.2, strideRate: 0.75,
+      slopeMomentum: 0.6, maxSlope: 40,
     },
   },
   {
@@ -164,6 +176,7 @@ export const PRESETS: Preset[] = [
       followSmoothing: 0.2,
       float: true, floatFlaps: 6, flapLift: 6.5, floatFallSpeed: 1.75, floatMoveSpeed: 0.55,
       runBob: 0.8, strideRate: 1.4,
+      slopeMomentum: 0.15,
     },
   },
   {
@@ -175,6 +188,8 @@ export const PRESETS: Preset[] = [
       coyoteTime: 0.1, jumpBuffer: 0.12,
       cameraDistance: 12, cameraHeight: 3.5, followSmoothing: 0.08, autoRotateSpeed: 3.5,
       turnLean: 0.9, accelLean: 0.5, armSwing: 0.8, strideRate: 0.85,
+      slopeMomentum: 1, maxSlope: 60,
+      homingAttack: true,
     },
   },
 ];

@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand, playFlap, playExhale, playSkid, type SkidStyle } from "./sfx";
+import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit, type SkidStyle } from "./sfx";
+import { TARGETS, homingState, findLockTarget, popTarget } from "./targets";
+import { CUSTOM_MODEL_URL, type AnimState } from "./characterModel";
+import { CustomModel, ModelErrorBoundary, useGlbCheck } from "./CustomModel";
 import { input, readMove } from "./input";
 import { events } from "./events";
 
@@ -28,6 +31,10 @@ export function Player() {
   const shadow = useRef<THREE.Mesh>(null);
   const silhouette = useRef<THREE.Mesh>(null);
   const blocked = useMemo(() => new Set<string>(), []);
+  const useCustomModel = useSettings((v) => v.values["customModel"] === true);
+  const modelValid = useGlbCheck(CUSTOM_MODEL_URL);
+  const animState = useRef<AnimState>("idle"); // what a custom model's animation should show
+  const animSpeed = useRef(1); // run-cycle speed for a custom model
 
   // Dust puffs: a fixed pool of particles drawn as one instanced mesh
   const dustMesh = useRef<THREE.InstancedMesh>(null);
@@ -75,7 +82,8 @@ export function Player() {
     prevFacing: Math.PI, prevFwdSpeed: 0, roll: 0, pitch: 0, bobY: 0, stridePhase: 0,
     wasAirborne: false,
     // ---- moves
-    move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float",
+    move: "none" as "none" | "long" | "stall" | "pound" | "wall" | "float" | "homing",
+    homingId: -1, homingStart: 0, homingStuck: 0, // homing attack: target, start time, frames barely moving
     airJumpsUsed: 0,
     groundedSince: 0, // when we last touched down (for spotting buffered jumps)
     takeoffY: 0, peakY: 0, trackJump: false, // measuring plain jumps for the tutorial
@@ -173,6 +181,13 @@ export function Player() {
     const s = st.current;
     const mv = readMove();
 
+    // ---- the ground under us (for slopes): normal of whatever is just below the body
+    let groundN: { x: number; y: number; z: number } | null = null;
+    if (s.grounded) {
+      const gh = world.castRayAndGetNormal(new rapier.Ray(b.translation(), { x: 0, y: -1, z: 0 }), HALF + RADIUS + 0.6, true, undefined, undefined, c);
+      if (gh && gh.normal.y > 0.05) groundN = gh.normal;
+    }
+
     // ---- camera orbit input
     s.camYaw -= input.orbitDX * 0.005 + mv.camX * 2.5 * dt;
     s.camPitch = THREE.MathUtils.clamp(s.camPitch + input.orbitDY * 0.004 + mv.camY * 1.5 * dt, -0.6, 1.2);
@@ -188,7 +203,9 @@ export function Player() {
     const maxSpeed = num(S, "maxSpeed");
     // Crouch (only matters when Long Jump is on): slide to a stop on the ground
     const crouching = s.grounded && mv.crouchHeld && bool(S, "longJump");
-    if (s.move === "stall" || s.move === "pound") {
+    if (s.move === "homing") {
+      // Homing dash: velocity is set in the homing section below
+    } else if (s.move === "stall" || s.move === "pound") {
       // Ground pound: no sideways movement at all
       s.vel.x = 0; s.vel.z = 0;
     } else if (s.move === "long") {
@@ -201,6 +218,14 @@ export function Player() {
       }
     } else {
       const floating = s.move === "float";
+      // Slope momentum: on a slope, moving downhill raises the target speed and uphill lowers it.
+      // (gnx, gnz) is the ground's tilt: it points downhill, and its length grows with steepness.
+      let slopeScale = 1;
+      if (groundN && hasInput && num(S, "slopeMomentum") > 0) {
+        const il = Math.hypot(dx, dz);
+        const downhill = (dx / il) * groundN.x + (dz / il) * groundN.z; // + going downhill, - uphill
+        slopeScale = THREE.MathUtils.clamp(1 + num(S, "slopeMomentum") * 1.6 * downhill, 0.35, 1.8);
+      }
       // Walk vs run. Keyboard: walk unless the run toggle is on. Sticks: speed follows how far
       // the stick is pushed, up to walk speed, then the last stretch to a full push runs.
       let runScale = 1;
@@ -212,7 +237,7 @@ export function Player() {
           runScale = f / mag; // dx/dz already carry the stick magnitude
         } else if (!input.running) runScale = walk;
       }
-      const top = (floating ? maxSpeed * num(S, "floatMoveSpeed") : maxSpeed) * runScale;
+      const top = (floating ? maxSpeed * num(S, "floatMoveSpeed") : maxSpeed) * runScale * slopeScale;
       const tx = crouching ? 0 : dx * top, tz = crouching ? 0 : dz * top;
       const airMul = s.grounded ? 1 : now < s.controlLockUntil ? 0 : floating ? 0.5 : num(S, "airControl");
       const rate = crouching ? num(S, "deceleration") * 0.2 // slow slide, leaves time to long jump
@@ -243,7 +268,11 @@ export function Player() {
       if (bool(S, "dust") && puff > 0) { const pp = b.translation(); spawnDust(pp.x, pp.y - (HALF + RADIUS) + 0.08, pp.z, puff, 1.6, 0.18); }
       if (bool(S, "sounds")) playJump(num(S, "soundVolume"));
     };
-    const busyPounding = s.move === "stall" || s.move === "pound";
+    const busyPounding = s.move === "stall" || s.move === "pound" || s.move === "homing";
+    // HOMING lock-on: nearest target in range ahead of us while airborne
+    const lock = bool(S, "homingAttack") && !s.grounded && !busyPounding
+      ? findLockTarget(b.translation(), s.facing, num(S, "homingRange"), now) : null;
+    homingState.lockedId = lock ? lock.id : s.move === "homing" ? s.homingId : -1;
     if (buffered && (s.grounded || canCoyote) && !s.jumping) {
       events.jumps++;
       if (!s.grounded) events.coyoteJumps++; // jumped after walking off a ledge
@@ -280,6 +309,12 @@ export function Player() {
         input.jumpPressedAt = -Infinity;
         archiveTrail();
         takeoffJuice(4);
+      } else if (lock) {
+        // HOMING ATTACK: dash straight at the locked target
+        s.move = "homing"; s.homingId = lock.id; s.homingStart = now; s.homingStuck = 0;
+        s.variableOk = false; s.jumping = true; s.trackJump = false;
+        input.jumpPressedAt = -Infinity;
+        if (bool(S, "sounds")) playHoming(num(S, "soundVolume"));
       } else if (bool(S, "doubleJump") && s.move !== "float" && s.airJumpsUsed < num(S, "airJumps")) {
         // AIR JUMP: fresh upward kick, and snap toward the stick direction
         s.airJumpsUsed++;
@@ -330,22 +365,46 @@ export function Player() {
       s.vel.y = 0;
       if (now >= s.poundUntil) s.move = "pound";
     }
-    if (s.move === "pound") {
+    if (s.move === "homing") {
+      // Re-aim at the target every frame; no gravity during the dash
+      const t = TARGETS[s.homingId];
+      const p = b.translation();
+      if (t) {
+        const tx2 = t.pos.x - p.x, ty2 = t.pos.y - p.y, tz2 = t.pos.z - p.z;
+        const d = Math.hypot(tx2, ty2, tz2) || 1;
+        const sp = num(S, "homingSpeed");
+        s.vel.set((tx2 / d) * sp, (ty2 / d) * sp, (tz2 / d) * sp);
+        s.facing = Math.atan2(tx2, tz2);
+      }
+      if (!t || now - s.homingStart > 1.5) s.move = "none"; // give up if it takes too long
+    } else if (s.move === "pound") {
       s.vel.y = -num(S, "poundSpeed");
     } else if (s.move === "float") {
       // Floating: lighter gravity and a gentle maximum sink speed
       s.vel.y = Math.max(s.vel.y - gravity * 0.5 * dt, -num(S, "floatFallSpeed"));
     } else if (s.move !== "stall") {
       let g = gravity;
-      if (s.vel.y < 0) g *= num(S, "fallGravityMultiplier");
+      // Fall multiplier only when actually falling, not while standing (it would drag on steep slopes)
+      if (s.vel.y < 0 && !s.grounded) g *= num(S, "fallGravityMultiplier");
       else if (s.vel.y > 0 && bool(S, "variableJumpHeight") && s.variableOk && !mv.jumpHeld && s.jumping) g *= num(S, "fallGravityMultiplier") * 1.5;
       s.vel.y = Math.max(s.vel.y - g * dt, -num(S, "maxFallSpeed"));
     }
 
     const fallSpeed = Math.max(0, -s.vel.y); // before collision zeroes it, for landing effects
 
-    // ---- collide via Rapier character controller
+    // ---- collide via Rapier character controller (slope limits are live settings)
+    controller.setMaxSlopeClimbAngle((num(S, "maxSlope") * Math.PI) / 180);
+    controller.setMinSlopeSlideAngle((num(S, "slideSlope") * Math.PI) / 180);
     tmp.v.set(s.vel.x * dt, s.vel.y * dt, s.vel.z * dt);
+    // On a walkable slope, aim the movement along the slope itself so walking speed is the
+    // same uphill and down (the physics engine would otherwise flatten it against the slope,
+    // losing most of it on steep ones). Slopes past the Slide Angle keep gravity, so you slide.
+    if (groundN && s.vel.y <= 0) {
+      const slopeDeg = (Math.acos(Math.min(groundN.y, 1)) * 180) / Math.PI;
+      if (slopeDeg > 1 && slopeDeg <= num(S, "maxSlope") && slopeDeg < num(S, "slideSlope")) {
+        tmp.v.y = (-(s.vel.x * groundN.x + s.vel.z * groundN.z) / groundN.y) * dt - 0.01;
+      }
+    }
     controller.computeColliderMovement(c, tmp.v);
     const m = controller.computedMovement();
     const p = b.translation();
@@ -363,6 +422,27 @@ export function Player() {
     }
     if (dt > 0 && m.y > tmp.v.y + 1e-4 && s.vel.y < 0) s.vel.y = 0; // landed / blocked below
     if (dt > 0 && s.vel.y > 0 && m.y < tmp.v.y - 1e-4) s.vel.y = 0; // bonked ceiling
+    // HOMING: hit when close, or give up if something blocks the dash
+    if (s.move === "homing") {
+      const t = TARGETS[s.homingId];
+      const want = Math.hypot(tmp.v.x, tmp.v.y, tmp.v.z), got = Math.hypot(m.x, m.y, m.z);
+      s.homingStuck = got < want * 0.3 ? s.homingStuck + 1 : 0;
+      if (t && Math.hypot(t.pos.x - next.x, t.pos.y - next.y, t.pos.z - next.z) < 1.0) {
+        popTarget(t, now);
+        events.homingHits++;
+        // Bounce up off the target, keeping a little forward motion, with all air moves refreshed
+        s.vel.x *= 0.15; s.vel.z *= 0.15;
+        s.vel.y = launch(num(S, "homingBounce"));
+        s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0; s.jumping = true;
+        s.flipStart = now; s.flipDur = 0.35;
+        s.sqV += 6 * num(S, "squashStretch");
+        if (bool(S, "dust")) spawnDust(t.pos.x, t.pos.y, t.pos.z, 10, 3, 0.16);
+        if (bool(S, "sounds")) playHit(num(S, "soundVolume"));
+        archiveTrail();
+      } else if (s.homingStuck >= 4) {
+        s.move = "none"; // ran into something
+      }
+    }
     const wasPounding = s.move === "pound";
     if (groundedNow && s.vel.y <= 0) {
       s.vel.y = 0;
@@ -401,9 +481,11 @@ export function Player() {
     // than blocking it, so they no longer drain speed (which used to stall
     // slow-accelerating characters like Sonic on slopes, worse at high frame rates).
     if (dt > 0) {
+      // A surface is a wall if it's steeper than Max Slope (and isn't a ceiling)
+      const wallBelow = Math.cos((num(S, "maxSlope") * Math.PI) / 180) - 0.02;
       for (let i = 0; i < controller.numComputedCollisions(); i++) {
         const col = controller.computedCollision(i);
-        if (!col || Math.abs(col.normal1.y) > 0.5) continue; // floors and climbable slopes aren't walls
+        if (!col || col.normal1.y > wallBelow || col.normal1.y < -0.5) continue; // floors, climbable slopes, ceilings
         s.wallContactAt = now;
         const nl = Math.hypot(col.normal1.x, col.normal1.z) || 1;
         const nx = col.normal1.x / nl, nz = col.normal1.z / nl; // points out of the wall, toward us
@@ -452,7 +534,8 @@ export function Player() {
     if (tumble.current) {
       // Flip (air jump / ground pound) + forward lean (long jump), around the body's centre
       const ft = (now - s.flipStart) / s.flipDur;
-      const flip = ft >= 0 && ft < 1 ? Math.PI * 2 * (1 - (1 - ft) * (1 - ft)) : 0;
+      const flip = s.move === "homing" ? now * 22 // spin like a ball while dashing
+        : ft >= 0 && ft < 1 ? Math.PI * 2 * (1 - (1 - ft) * (1 - ft)) : 0;
       const leanWant = s.move === "long" ? 1.0 : 0;
       s.lean += (leanWant - s.lean) * (1 - Math.exp(-12 * dt));
       tumble.current.rotation.x = flip + s.lean;
@@ -468,6 +551,9 @@ export function Player() {
       const accel = dt > 0 ? (fwdSpeed - s.prevFwdSpeed) / dt : 0;
       s.prevFwdSpeed = fwdSpeed;
       const running = s.grounded && s.move === "none" && !crouching;
+      // For custom models with their own animation clips
+      animState.current = !s.grounded ? (s.vel.y > 0 ? "jump" : "fall") : hs < 0.5 ? "idle" : hs < maxSpeed * 0.6 ? "walk" : "run";
+      animSpeed.current = THREE.MathUtils.clamp(hs / Math.max(maxSpeed * 0.75, 1), 0.5, 2.5);
 
       // Bank into turns (more at speed) and tip with acceleration; settle smoothly
       const rollWant = running ? THREE.MathUtils.clamp(-yawRate * hs * 0.035, -0.5, 0.5) * turnAmt : 0;
@@ -499,7 +585,7 @@ export function Player() {
           // Superhero dive: arms swept back, feet trailing
           hl = [0.55, 0.05, -0.45]; hr = [-0.55, 0.05, -0.45];
           fl = [0.2, -0.78, -0.42]; fr = [-0.2, -0.82, -0.36];
-        } else if (s.move === "stall" || s.move === "pound") {
+        } else if (s.move === "stall" || s.move === "pound" || s.move === "homing") {
           // Tucked into a ball, arms up for the slam
           const slam = s.move === "pound";
           hl = [0.48, slam ? 0.55 : -0.15, slam ? 0 : 0.25]; hr = [-0.48, slam ? 0.55 : -0.15, slam ? 0 : 0.25];
@@ -734,12 +820,41 @@ export function Player() {
     if (silhouette.current) silhouette.current.visible = bool(S, "playerSilhouette");
 
     liveStats.speed = hs;
-    liveStats.move = s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : "wall jump";
+    liveStats.move = s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;
     liveStats.jumpVelocity = jumpVelocity;
   };
+
+  // The built-in capsule body with its face (also the fallback while a custom model loads)
+  const capsuleBody = (
+    <>
+      <mesh castShadow renderOrder={1}>
+        <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
+        <meshStandardMaterial color="#ff7a59" roughness={0.45} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
+      </mesh>
+      {/* eyes */}
+      {[-0.17, 0.17].map((x) => (
+        <group key={x} position={[x, 0.35, RADIUS - 0.06]}>
+          {/* Face parts don't write depth, so the silhouette doesn't treat them as "in front" of the player */}
+          <mesh renderOrder={2}>
+            <sphereGeometry args={[0.12, 16, 12]} />
+            <meshStandardMaterial color="#ffffff" roughness={0.3} depthWrite={false} />
+          </mesh>
+          <mesh position={[0, 0, 0.08]} renderOrder={3}>
+            <sphereGeometry args={[0.06, 12, 10]} />
+            <meshStandardMaterial color="#1d2433" roughness={0.2} depthWrite={false} />
+          </mesh>
+        </group>
+      ))}
+      {/* nose */}
+      <mesh position={[0, 0.12, RADIUS + 0.04]} rotation-x={Math.PI / 2} renderOrder={2} castShadow>
+        <coneGeometry args={[0.09, 0.22, 12]} />
+        <meshStandardMaterial color="#ffb547" roughness={0.5} depthWrite={false} />
+      </mesh>
+    </>
+  );
 
   return (
     <>
@@ -768,10 +883,14 @@ export function Player() {
                 <meshStandardMaterial color="#3d4f9a" roughness={0.5} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
               </mesh>
             </group>
-            <mesh castShadow renderOrder={1}>
-              <capsuleGeometry args={[RADIUS, HALF * 2, 8, 16]} />
-              <meshStandardMaterial color="#ff7a59" roughness={0.45} stencilWrite stencilRef={1} stencilFunc={THREE.AlwaysStencilFunc} stencilZPass={THREE.ReplaceStencilOp} />
-            </mesh>
+            {/* Body: your own model from src/game/models if there is one, otherwise the capsule */}
+            {useCustomModel && CUSTOM_MODEL_URL && modelValid ? (
+              <ModelErrorBoundary fallback={capsuleBody}>
+                <Suspense fallback={capsuleBody}>
+                  <CustomModel url={CUSTOM_MODEL_URL} state={animState} speed={animSpeed} />
+                </Suspense>
+              </ModelErrorBoundary>
+            ) : capsuleBody}
             {/* Silhouette: drawn where something sits in front of the player (GreaterDepth), but
                 only where that something isn't part of the player itself (stencil ≠ 1) */}
             <mesh ref={silhouette} renderOrder={10}>
@@ -792,25 +911,6 @@ export function Player() {
                 polygonOffsetFactor={-1}
                 polygonOffsetUnits={-1}
               />
-            </mesh>
-            {/* eyes */}
-            {[-0.17, 0.17].map((x) => (
-              <group key={x} position={[x, 0.35, RADIUS - 0.06]}>
-                {/* Face parts don't write depth, so the silhouette doesn't treat them as "in front" of the player */}
-                <mesh renderOrder={2}>
-                  <sphereGeometry args={[0.12, 16, 12]} />
-                  <meshStandardMaterial color="#ffffff" roughness={0.3} depthWrite={false} />
-                </mesh>
-                <mesh position={[0, 0, 0.08]} renderOrder={3}>
-                  <sphereGeometry args={[0.06, 12, 10]} />
-                  <meshStandardMaterial color="#1d2433" roughness={0.2} depthWrite={false} />
-                </mesh>
-              </group>
-            ))}
-            {/* nose */}
-            <mesh position={[0, 0.12, RADIUS + 0.04]} rotation-x={Math.PI / 2} renderOrder={2} castShadow>
-              <coneGeometry args={[0.09, 0.22, 12]} />
-              <meshStandardMaterial color="#ffb547" roughness={0.5} depthWrite={false} />
             </mesh>
           </group>
           </group>

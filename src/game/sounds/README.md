@@ -12,6 +12,8 @@ named after the sound it replaces:
 | `skid.mp3`   | the player skids on a hard turn      |
 | `flap.mp3`   | each Float (Kirby) flap              |
 | `exhale.mp3` | exhaling out of a Float              |
+| `homing.mp3` | starting a homing attack dash        |
+| `hit.mp3`    | hitting a homing target              |
 
 - `.mp3`, `.ogg`, `.wav` and `.m4a` all work.
 - Files are picked up automatically; no code changes needed.

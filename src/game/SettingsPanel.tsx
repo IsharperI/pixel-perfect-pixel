@@ -121,7 +121,7 @@ function SettingRow({ def }: { def: SettingDef }) {
     if (hl[0] === def.key) rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [hl, def.key]);
   const isDefault = value === def.default;
-  if (!parentOn) return null;
+  if (!parentOn || def.available === false) return null;
 
   return (
     <div className="setting-row" ref={rowRef} data-highlight={highlighted}>
