@@ -10,9 +10,9 @@ const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
 ];
 
 const HINTS: Record<Tool, string> = {
-  build: "Click the ground or a block to add a piece · R rotates · drag to turn the view · right-drag to slide · scroll to zoom",
+  build: "Click to add a piece, or drag to fill an area · R rotates · right-drag turns the view · middle-drag slides · scroll zooms",
   select: "Click a block, then drag its arrows to move it (green = up, to make it float) · R rotates it · Delete removes it",
-  erase: "Click a block to remove it · Ctrl+Z brings it back",
+  erase: "Click a block to remove it, or drag to clear an area · Ctrl+Z brings it back · right-drag turns the view",
 };
 
 const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();

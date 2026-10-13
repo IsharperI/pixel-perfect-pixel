@@ -17,6 +17,20 @@ describe("level editor store", () => {
     expect(S().blocks).toHaveLength(2);
   });
 
+  it("places and removes many blocks as a single undo step", () => {
+    S().place({ piece: "cube", x: 1, y: 0, z: 0, rot: 0 });
+    const n = S().placeMany([0, 1, 2].map((x) => ({ piece: "cube" as const, x, y: 0, z: 0, rot: 0 })));
+    expect(n).toBe(2); // x=1 was already taken
+    expect(S().blocks).toHaveLength(3);
+    S().undo();
+    expect(S().blocks).toHaveLength(1);
+    S().redo();
+    S().removeMany(S().blocks.map((b) => b.id));
+    expect(S().blocks).toHaveLength(0);
+    S().undo();
+    expect(S().blocks).toHaveLength(3);
+  });
+
   it("keeps only one Start pad", () => {
     S().place({ piece: "start", x: 0, y: 0, z: 0, rot: 0 });
     S().place({ piece: "start", x: 5, y: 0, z: 5, rot: 0 });

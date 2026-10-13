@@ -22,6 +22,10 @@ type LevelState = {
   select: (id: string | null) => void;
   place: (b: Omit<Block, "id">) => boolean;
   remove: (id: string) => void;
+  /** Place several pieces as one undo step (drag to draw). Returns how many went in. */
+  placeMany: (list: Omit<Block, "id">[]) => number;
+  /** Remove several blocks as one undo step (drag to erase). */
+  removeMany: (ids: string[]) => void;
   move: (id: string, to: { x: number; y: number; z: number }) => boolean;
   undo: () => void;
   redo: () => void;
@@ -78,6 +82,28 @@ export const useLevel = create<LevelState>((set, get) => {
       if (!blocks.some((b) => b.id === id)) return;
       commit(blocks.filter((b) => b.id !== id));
       if (selectedId === id) set({ selectedId: null });
+    },
+
+    placeMany: (list) => {
+      let blocks = get().blocks;
+      let n = 0;
+      for (const b of list) {
+        if (!canPlace(b, blocks)) continue;
+        const kept = PIECES[b.piece].unique ? blocks.filter((x) => x.piece !== b.piece) : blocks;
+        blocks = [...kept, { ...b, id: newId() }];
+        n++;
+      }
+      if (n) commit(blocks);
+      return n;
+    },
+
+    removeMany: (ids) => {
+      const gone = new Set(ids);
+      const { blocks, selectedId } = get();
+      const left = blocks.filter((b) => !gone.has(b.id));
+      if (left.length === blocks.length) return;
+      commit(left);
+      if (selectedId && gone.has(selectedId)) set({ selectedId: null });
     },
 
     move: (id, to) => {
