@@ -5,7 +5,7 @@
  */
 
 export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star";
-export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting" | "vines";
 
 export type Piece = {
   label: string;
@@ -40,6 +40,7 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Star: collect it" },
   moving: { colour: "#fb923c", edge: "#c2410c", name: "Orange", meaning: "Moving platform" },
   tilting: { colour: "#b794f6", edge: "#6d28d9", name: "Purple", meaning: "Tilts when you stand on it" },
+  vines: { colour: "#4ade80", edge: "#15803d", name: "Vine green", meaning: "Vines: grab (E) and climb" },
 };
 
 /** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */
@@ -61,7 +62,12 @@ export type Block = {
   move?: Motion;
   /** A seesaw platform that tips toward where you stand (pivot in the middle), up to `max` degrees */
   tilt?: { max: number };
+  /** Sides covered in climbable vines: bit flags in the block's own frame (see game/climb.ts FACE) */
+  vines?: number;
 };
+
+/** Can vines be painted on this block? (Still, plain blocks: not ramps, moving or tilting ones.) */
+export const canPaint = (b: Pick<Block, "piece" | "move" | "tilt">) => PIECES[b.piece].behaviour === "solid" && !b.move && !b.tilt;
 
 /** Can this piece be made into a moving or tilting platform? (Plain solid blocks only, for now.) */
 export const canMove = (piece: PieceId) => PIECES[piece].behaviour === "solid";

@@ -32,7 +32,7 @@ export function toLevelFile(level: LevelData) {
     rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
-    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}) })),
+    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt, vines }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}) })),
   };
 }
 
@@ -61,7 +61,9 @@ export function readLevelFile(data: unknown): LevelData | null {
     if (!canPlace(b, blocks)) continue;
     const move = canMove(b.piece) ? readMotion(r["move"]) : undefined;
     const tilt = !move && canMove(b.piece) ? readTilt(r["tilt"]) : undefined;
-    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}) });
+    const v = r["vines"];
+    const vines = !move && !tilt && PIECES[b.piece].behaviour === "solid" && isInt(v) && v > 0 && v < 16 ? v : 0;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";

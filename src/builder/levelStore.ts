@@ -1,11 +1,11 @@
 import { create } from "zustand";
-import { BUILD_LIMIT, HEIGHT_LIMIT, PIECES, blankLevel, bounds, canMove, canPlace, newId, starterLevel, type Block, type Motion, type PieceId } from "./pieces";
+import { BUILD_LIMIT, HEIGHT_LIMIT, PIECES, blankLevel, bounds, canMove, canPaint, canPlace, newId, starterLevel, type Block, type Motion, type PieceId } from "./pieces";
 import { defaultMotion, nextStopOffset, type V3 } from "./motion";
 import { DEFAULT_TILT, TILT_MAX, TILT_MIN } from "./tilt";
 import type { LevelData } from "./levelFile";
 import { DEFAULT_RULES, type Rules } from "./rules";
 
-export type Tool = "build" | "select" | "erase";
+export type Tool = "build" | "select" | "paint" | "erase";
 export type Mode = "edit" | "play";
 
 const HISTORY_LIMIT = 100;
@@ -56,6 +56,8 @@ type LevelState = {
   updateMotion: (id: string, patch: Partial<Motion>) => void;
   /** Turn a block into a tilting (seesaw) platform, or back into a still one */
   setTilt: (id: string, on: boolean) => void;
+  /** Set the vine-covered sides of several blocks, as one undo step (painting) */
+  paintVines: (masks: Map<string, number>) => void;
   /** How far a tilting platform tips, in degrees */
   setTiltMax: (id: string, max: number) => void;
   selectStop: (i: number) => void;
@@ -81,7 +83,7 @@ type LevelState = {
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
 export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
-  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? null])]);
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? null, b.vines ?? 0])]);
 }
 
 /** The current level as data to save. */
@@ -224,7 +226,7 @@ export const useLevel = create<LevelState>((set, get) => {
       if (!b || (motion && !canMove(b.piece))) return;
       commit(blocks.map((x) => {
         if (x.id !== id) return x;
-        const { move: _, tilt: _t, ...rest } = x; // a platform either moves or tilts
+        const { move: _, tilt: _t, vines: _v, ...rest } = x; // a platform either moves or tilts (and has no vines)
         return motion ? { ...rest, move: motion } : rest;
       }));
       set({ stopIndex: motion ? 1 : 0 });
@@ -236,10 +238,23 @@ export const useLevel = create<LevelState>((set, get) => {
       if (!b || (on && !canMove(b.piece)) || !!b.tilt === on) return;
       commit(blocks.map((x) => {
         if (x.id !== id) return x;
-        const { move: _, tilt: _t, ...rest } = x;
+        const { move: _, tilt: _t, vines: _v, ...rest } = x;
         return on ? { ...rest, tilt: { max: DEFAULT_TILT } } : rest;
       }));
       set({ stopIndex: 0 });
+    },
+
+    paintVines: (masks) => {
+      const { blocks } = get();
+      let changed = false;
+      const next = blocks.map((b) => {
+        const m = masks.get(b.id);
+        if (m === undefined || (b.vines ?? 0) === m || !canPaint(b)) return b;
+        changed = true;
+        const { vines: _, ...rest } = b;
+        return m ? { ...rest, vines: m } : rest;
+      });
+      if (changed) commit(next);
     },
 
     setTiltMax: (id, max) => {

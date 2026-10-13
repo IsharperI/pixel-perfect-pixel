@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser, Hammer, MousePointer2, MoveRight, Scale, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
+import { Eraser, Hammer, MousePointer2, MoveRight, Scale, Sprout, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
 import { useLevel, type Tool } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
@@ -14,12 +14,14 @@ import { PieceIcon } from "./PieceIcon";
 const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
   { id: "build", label: "Build", key: "B", icon: Hammer },
   { id: "select", label: "Move", key: "V", icon: MousePointer2 },
+  { id: "paint", label: "Vines", key: "P", icon: Sprout },
   { id: "erase", label: "Erase", key: "E", icon: Eraser },
 ];
 
 const HINTS: Record<Tool, string> = {
   build: "Click to add a piece, or drag to fill an area · R rotates · right-drag turns the view · middle-drag slides · scroll zooms",
   select: "Click a block, then drag its arrows to move it (green = up, to make it float) · Make it move or tilt for special platforms · R rotates · Delete removes",
+  paint: "Click a block's side to grow climbable vines (click again to remove) · drag to paint along a wall · right-drag turns the view",
   erase: "Click a block to remove it, or drag to clear an area · Ctrl+Z brings it back · right-drag turns the view",
 };
 
@@ -40,7 +42,7 @@ export function BuilderUI() {
         <PlayHud />
         <WinScreen />
         <div className="builder-hint">
-          <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · <kbd>Z</kbd> walk/run · drag to look around
+          <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · <kbd>Z</kbd> walk/run · <kbd>E</kbd> grab vines · drag to look around
         </div>
       </>
     );
@@ -434,7 +436,7 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
 
 /** What each colour means. */
 function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "start", "goal", "star"];
+  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "start", "goal", "star"];
   return (
     <div className="builder-legend" aria-label="Colour key">
       <p className="builder-heading">Colour key</p>

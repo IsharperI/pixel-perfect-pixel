@@ -8,10 +8,11 @@ import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, hasWon, isPlayground, touchesFlag, touchesStar } from "./rules";
 import { saveBestTime, listSavedLevels } from "./levelFile";
-import { PIECES, centre, footprint, spawnPoint, type Block } from "./pieces";
+import { PIECES, bounds, canPaint, centre, footprint, spawnPoint, type Block } from "./pieces";
+import { boxFaces, climbFaces, findGrab, rotateFaces } from "../game/climb";
 import { Player } from "../game/Player";
 import { useInputListeners } from "../game/input";
-import { liveStats, useSettings, bool, num } from "../game/settings";
+import { liveStats, useSettings, useUI, bool, num } from "../game/settings";
 import { playStar, playTick, playTimeUp, playWin } from "../game/sfx";
 import { carriers, type Carrier } from "../game/carriers";
 import { positionAt, stopCentres } from "./motion";
@@ -33,6 +34,7 @@ export function PlayScene() {
       {/* After the player has moved: put the moving platforms in their new places */}
       <PlatformCommit />
       <Water />
+      <ClimbWalls blocks={blocks} />
       <GoalWatcher />
     </Physics>
   );
@@ -172,6 +174,18 @@ function PlayTilter({ block }: { block: Block }) {
   );
 }
 
+/** Lets the player climb painted vines: lists every vine-covered side while the level is played. */
+function ClimbWalls({ blocks }: { blocks: Block[] }) {
+  useEffect(() => {
+    const faces = blocks
+      .filter((b) => b.vines && canPaint(b))
+      .flatMap((b) => { const { min, max } = bounds(b); return boxFaces(min, max, rotateFaces(b.vines!, b.rot)); });
+    climbFaces.push(...faces);
+    return () => { climbFaces.length = 0; };
+  }, [blocks]);
+  return null;
+}
+
 /** Runs after the player each frame: places every moving platform at its new position. */
 function PlatformCommit() {
   useFrame(() => { for (const c of carriers.values()) c.commit(); });
@@ -221,6 +235,11 @@ function GoalWatcher() {
     const p = { x: liveStats.x, y: liveStats.y, z: liveStats.z };
     const r = L.rules;
     const elapsed = performance.now() / 1000 - P.startedAt;
+
+    // Next to vines (and not climbing yet)? A reminder of how to grab on
+    if (bool(S, "climbing") && liveStats.move !== "climbing" && climbFaces.length && findGrab(p.x, p.y, p.z)) {
+      P.showHint(useUI.getState().touchMode ? "Tap Grab to climb the vines" : "Press E to climb the vines");
+    }
 
     // Stars can always be collected (in every mode)
     const stars = L.blocks.filter((b) => b.piece === "star");

@@ -6,7 +6,8 @@ import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
 import { useLevel } from "./levelStore";
 import { placementFor } from "./placement";
-import { BUILD_LIMIT, PIECES, canPlace, centre, footprint, type Block } from "./pieces";
+import { BUILD_LIMIT, PIECES, canPaint, canPlace, centre, footprint, type Block } from "./pieces";
+import { FACE, rotateFaces } from "../game/climb";
 import { blocksInRect, cellRect, fillRect } from "./drag";
 import { positionAt, stopCentres } from "./motion";
 import { fullTilt } from "./tilt";
@@ -66,7 +67,32 @@ export function EditorScene() {
   }, [camera]);
 
   // Clear hover previews (and any drag) when switching tools or pieces
-  useEffect(() => { setGhost(null); setEraseId(null); setDrag(null); }, [tool, piece, rot]);
+  useEffect(() => { setGhost(null); setEraseId(null); setDrag(null); setPaintHover(null); }, [tool, piece, rot]);
+
+  // ---- Painting vines: which side is under the pointer, and the strokes of a drag in progress
+  const [paintHover, setPaintHover] = useState<{ id: string; face: number; add: boolean } | null>(null);
+  const [pending, setPending] = useState<Map<string, number> | null>(null);
+  const painting = useRef<{ add: boolean; masks: Map<string, number> } | null>(null);
+
+  /** The block side under the pointer, as a face bit in the block's own frame (sides only). */
+  const sideFor = (e: ThreeEvent<PointerEvent>) => {
+    const hit = blockFromEvent(e, blocks);
+    if (!hit || !e.face || !canPaint(hit)) return null;
+    const n = e.face.normal.clone().transformDirection(e.object.matrixWorld);
+    if (Math.abs(n.y) > 0.5) return null; // only sides can have vines
+    const world = Math.abs(n.x) > Math.abs(n.z) ? (n.x > 0 ? FACE.px : FACE.nx) : n.z > 0 ? FACE.pz : FACE.nz;
+    return { block: hit, face: rotateFaces(world, 4 - (hit.rot % 4)) };
+  };
+  const currentMask = (b: Block) => painting.current?.masks.get(b.id) ?? b.vines ?? 0;
+  const applyPaint = (b: Block, face: number) => {
+    const p = painting.current;
+    if (!p) return;
+    const m = currentMask(b);
+    const next = p.add ? m | face : m & ~face;
+    if (next === m) return;
+    p.masks.set(b.id, next);
+    setPending(new Map(p.masks));
+  };
 
   /** Where the mouse points on the flat level y = planeY. */
   const pointOnLevel = (clientX: number, clientY: number, planeY: number) => {
@@ -81,6 +107,23 @@ export function EditorScene() {
   // Press the left button to start drawing (Build) or erasing (Erase); the drag follows the
   // mouse anywhere on screen and everything is added/removed when the button is let go.
   const onDown = (e: ThreeEvent<PointerEvent>) => {
+    if (e.button === 0 && tool === "paint") {
+      e.stopPropagation();
+      const side = sideFor(e);
+      if (!side) return;
+      // The first side decides: painting a bare side adds vines, a vine-covered one removes them
+      painting.current = { add: !((side.block.vines ?? 0) & side.face), masks: new Map() };
+      applyPaint(side.block, side.face);
+      const up = () => {
+        window.removeEventListener("pointerup", up);
+        const p = painting.current;
+        painting.current = null;
+        if (p?.masks.size) useLevel.getState().paintVines(p.masks);
+        setPending(null);
+      };
+      window.addEventListener("pointerup", up);
+      return;
+    }
     if (e.button !== 0 || (tool !== "build" && tool !== "erase")) return;
     e.stopPropagation();
     const downX = e.nativeEvent.clientX, downY = e.nativeEvent.clientY;
@@ -150,6 +193,12 @@ export function EditorScene() {
     e.stopPropagation(); // only the nearest surface counts
     if (drag) return;
     if (tool === "erase") { setEraseId(blockFromEvent(e, blocks)?.id ?? null); return; }
+    if (tool === "paint") {
+      const side = sideFor(e);
+      if (side && painting.current) applyPaint(side.block, side.face);
+      setPaintHover(side ? { id: side.block.id, face: side.face, add: painting.current ? painting.current.add : !(currentMask(side.block) & side.face) } : null);
+      return;
+    }
     setGhost(tool === "build" ? ghostFor(e) : null);
   };
 
@@ -161,7 +210,7 @@ export function EditorScene() {
   };
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null;
-  const drawing = tool === "build" || tool === "erase";
+  const drawing = tool === "build" || tool === "erase" || tool === "paint";
   const erasing = drag?.kind === "erase" ? new Set(drag.ids) : null;
 
   return (
@@ -192,11 +241,18 @@ export function EditorScene() {
         fadeStrength={1.2}
       />
 
-      <group onPointerDown={onDown} onPointerMove={onMove} onPointerOut={() => { setGhost(null); setEraseId(null); }} onClick={onClick}>
+      <group onPointerDown={onDown} onPointerMove={onMove} onPointerOut={() => { setGhost(null); setEraseId(null); setPaintHover(null); }} onClick={onClick}>
         {/* The water you build on (height 0): click it to place blocks */}
         <Water />
         {blocks.map((b) => (
-          <BlockMesh key={b.id} block={b} editor look={b.id === eraseId || erasing?.has(b.id) ? "erase" : "solid"} selected={b.id === selectedId && tool === "select" && (!b.move || stopIndex === 0)} />
+          <BlockMesh
+            key={b.id}
+            block={pending?.has(b.id) ? { ...b, vines: pending.get(b.id)! } : b}
+            editor
+            look={b.id === eraseId || erasing?.has(b.id) ? "erase" : "solid"}
+            selected={b.id === selectedId && tool === "select" && (!b.move || stopIndex === 0)}
+            vinePreview={tool === "paint" && paintHover?.id === b.id ? paintHover : undefined}
+          />
         ))}
       </group>
 

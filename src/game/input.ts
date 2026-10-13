@@ -5,6 +5,7 @@ export const input = {
   keys: new Set<string>(),
   jumpPressedAt: -Infinity, // performance.now() seconds of last jump press
   crouchPressedAt: -Infinity, // same, for the crouch button (ground pound trigger)
+  grabPressedAt: -Infinity, // same, for the grab button (E): grab onto / let go of vines
   orbitDX: 0,
   orbitDY: 0,
   lastOrbitAt: -Infinity,
@@ -50,6 +51,10 @@ export function readMove() {
     const cr = (p.buttons[1]?.pressed ?? false) || (p.buttons[6]?.pressed ?? false);
     if (cr && !padCrouchWas) input.crouchPressedAt = performance.now() / 1000;
     padCrouchWas = cr;
+    // Grab: X button
+    const gr = p.buttons[2]?.pressed ?? false;
+    if (gr && !padGrabWas) input.grabPressedAt = performance.now() / 1000;
+    padGrabWas = gr;
     crouchHeld ||= cr;
     break;
   }
@@ -61,6 +66,7 @@ export function readMove() {
 }
 let padJumpWas = false;
 let padCrouchWas = false;
+let padGrabWas = false;
 
 export function useInputListeners() {
   useEffect(() => {
@@ -78,6 +84,7 @@ export function useInputListeners() {
         return;
       }
       if (e.code === "KeyT" && !e.repeat) { useUI.getState().toggle("panelOpen"); return; }
+      if (e.code === "KeyE" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { input.grabPressedAt = performance.now() / 1000; return; }
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys
         (document.activeElement as HTMLElement | null)?.blur?.();

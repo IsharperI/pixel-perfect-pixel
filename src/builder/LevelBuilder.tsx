@@ -46,7 +46,7 @@ function useWarnBeforeLeaving() {
   }, []);
 }
 
-const TOOL_KEYS: Record<string, Tool> = { KeyB: "build", KeyV: "select", KeyE: "erase" };
+const TOOL_KEYS: Record<string, Tool> = { KeyB: "build", KeyV: "select", KeyP: "paint", KeyE: "erase" };
 
 /** Keyboard shortcuts for building (and Esc to stop playing). */
 function useBuilderKeys() {

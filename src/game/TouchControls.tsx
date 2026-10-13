@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { ArrowUp, ChevronsDown } from "lucide-react";
+import { ArrowUp, ChevronsDown, Hand } from "lucide-react";
 import { input, resetTouch } from "./input";
-import { useUI } from "./settings";
+import { useSettings, useUI } from "./settings";
 
 const STICK_RADIUS = 60; // px the knob can travel from the centre
 const DEAD_ZONE = 0.12; // ignore tiny thumb wobbles
@@ -16,6 +16,7 @@ const LOOK_SPEED = 1.3; // camera drag sensitivity, relative to mouse dragging
 export function TouchControls() {
   const touchMode = useUI((s) => s.touchMode);
   const panelOpen = useUI((s) => s.panelOpen);
+  const climbing = useSettings((s) => s.values["climbing"] === true);
   const layer = useRef<HTMLDivElement>(null);
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
@@ -137,6 +138,18 @@ export function TouchControls() {
         <div ref={knob} className="touch-knob" />
       </div>
       <div className="touch-buttons" data-panel-open={panelOpen}>
+        {climbing && (
+          <button
+            className="touch-btn touch-grab"
+            aria-label="Grab"
+            onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); input.grabPressedAt = performance.now() / 1000; e.currentTarget.dataset["pressed"] = "true"; }}
+            onPointerUp={(e) => { e.currentTarget.dataset["pressed"] = "false"; }}
+            onPointerCancel={(e) => { e.currentTarget.dataset["pressed"] = "false"; }}
+          >
+            <Hand size={20} aria-hidden />
+            <span>Grab</span>
+          </button>
+        )}
         <button className="touch-btn touch-crouch" aria-label="Crouch" {...button("crouch")}>
           <ChevronsDown size={22} aria-hidden />
           <span>Crouch</span>

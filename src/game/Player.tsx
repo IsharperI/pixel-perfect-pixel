@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { carriers, topAt, type Carrier } from "./carriers";
+import { faceCoords, findGrab, vineAt, wallTop, type ClimbFace } from "./climb";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
@@ -96,6 +97,8 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     variableOk: true, // whether releasing jump early may cut this jump short
     wallTouchAt: -Infinity, wallNX: 0, wallNZ: 0, // last wall contact in the air + its outward direction
     controlLockUntil: -Infinity, // briefly ignore steering after a wall kick
+    climb: null as ClimbFace | null, // the vine wall we're holding on to, if any
+    mantleTop: null as number | null, // pulling up over the top of the vines: the height to clear
     poundUntil: 0, // end of the ground-pound hang
     flipStart: -Infinity, flipDur: 0.35, lean: 0, // visual cues
   });
@@ -313,6 +316,67 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     // (a long jump) can't also trigger a pound.
     if (s.grounded) input.crouchPressedAt = -Infinity;
 
+    // ---- climbing vines: E (or Grab) next to vines grabs on; while holding on, the stick climbs
+    // instead of walking, gravity is off, jump leaps away, and E lets go. (Worked out before the
+    // jump section, which then sees no jump/crouch press, so no other move can trigger.)
+    let climbVel: { x: number; y: number; z: number } | null = null;
+    if (!bool(S, "climbing")) { s.climb = null; s.mantleTop = null; }
+    {
+      const here = b.translation();
+      if (bool(S, "climbing") && now - input.grabPressedAt <= Math.max(0.2, rawDt + 0.02)) {
+        input.grabPressedAt = -Infinity;
+        if (s.climb) { s.climb = null; s.mantleTop = null; } // let go
+        else if (s.move === "none" || s.move === "float" || s.move === "wall") {
+          const f = findGrab(here.x, here.y, here.z);
+          if (f) { s.climb = f; s.move = "none"; s.vel.set(0, 0, 0); s.airJumpsUsed = 0; s.flapsUsed = 0; }
+        }
+      }
+      const f = s.climb;
+      if (f) {
+        input.crouchPressedAt = -Infinity;
+        const { jumpVelocity: jv } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
+        if (now - input.jumpPressedAt <= Math.max(num(S, "jumpBuffer"), rawDt + 0.02)) {
+          // Leap off the wall: up and away from it
+          input.jumpPressedAt = -Infinity;
+          s.climb = null; s.mantleTop = null;
+          s.vel.set(f.nx * 5, jv * 0.8, f.nz * 5);
+          s.controlLockUntil = now + 0.25;
+          s.jumping = true; s.variableOk = false;
+          s.sqV += 7 * num(S, "squashStretch");
+          if (bool(S, "sounds")) playJump(num(S, "soundVolume"));
+        } else {
+          const speed = num(S, "climbSpeed");
+          const rightX = f.nz, rightZ = -f.nx; // "right" along the wall, facing it
+          const tDir = f.nx !== 0 ? rightZ : rightX; // how "right" moves along the face
+          const { t } = faceCoords(f, here.x, here.z);
+          let vy = mv.y * speed, vs = mv.x * speed;
+          const feetNow = here.y - (HALF + RADIUS);
+          if (s.mantleTop !== null) {
+            // Pulling up: rise straight up until our feet clear the top, then step forward onto it
+            vs = 0;
+            vy = Math.max(speed, 3) * 1.4;
+            if (feetNow >= s.mantleTop + 0.05) {
+              s.climb = null; s.mantleTop = null;
+              s.vel.set(-f.nx * 4.5, 0.5, -f.nz * 4.5);
+              s.controlLockUntil = now + 0.3;
+            }
+          } else {
+            // Sideways: stop at the edge of the vines
+            if (vs !== 0 && !vineAt(f, t + tDir * vs * dt * 3, here.y)) vs = 0;
+            const hands = here.y + 0.45 + vy * dt, feet = here.y - 0.45 + vy * dt;
+            if (vy > 0 && !vineAt(f, t, hands)) {
+              const top = wallTop(f, t, here.y);
+              if (top > -Infinity && hands >= top - 0.05) s.mantleTop = top; // reached the top: pull up
+              else vy = 0; // a gap in the vines
+            } else if (vy < 0 && (s.grounded || (!vineAt(f, t, feet) && !vineAt(f, t, hands)))) {
+              s.climb = null; // climbed down to the ground, or off the bottom of the vines
+            }
+          }
+          if (s.climb) climbVel = { x: rightX * vs - f.nx * 1.5, y: vy, z: rightZ * vs - f.nz * 1.5 };
+        }
+      }
+    }
+
     // ---- jump & gravity
     const { gravity, jumpVelocity } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
     const canCoyote = now - s.lastGroundedAt <= num(S, "coyoteTime");
@@ -449,6 +513,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       s.vel.y = Math.max(s.vel.y - g * dt, -num(S, "maxFallSpeed"));
     }
 
+    if (climbVel) s.vel.set(climbVel.x, climbVel.y, climbVel.z); // holding on to vines: no gravity
     const fallSpeed = Math.max(0, -s.vel.y); // before collision zeroes it, for landing effects
 
     // ---- collide via Rapier character controller (slope limits are live settings)
@@ -571,6 +636,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       s.lastPos.copy(spawnAt);
       s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0;
       s.riding = null;
+      s.climb = null; s.mantleTop = null;
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
 
@@ -579,6 +645,9 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     if ((s.move === "long" || s.move === "wall") && hs > 0.1) {
       // Mid long jump / wall kick: face where you're flying
       s.facing += angleDiff(s.facing, Math.atan2(s.vel.x, s.vel.z)) * (1 - Math.exp(-20 * dt));
+    } else if (s.climb) {
+      // Climbing: face the wall
+      s.facing += angleDiff(s.facing, Math.atan2(-s.climb.nx, -s.climb.nz)) * (1 - Math.exp(-20 * dt));
     } else if (hasInput && hs > 0.1 && (s.move === "none" || s.move === "float")) {
       const want = Math.atan2(dx, dz);
       s.facing += angleDiff(s.facing, want) * (1 - Math.exp(-num(S, "turnSpeed") * dt));
@@ -889,7 +958,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     liveStats.speed = hs;
     const at = b.translation(); // the body's centre, for things like collecting stars
     liveStats.x = at.x; liveStats.y = at.y; liveStats.z = at.z;
-    liveStats.move = s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
+    liveStats.move = s.climb ? "climbing" : s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;

@@ -3,7 +3,8 @@ import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { BEHAVIOUR_COLOURS, PIECES, behaviourOf, centre, type Block } from "./pieces";
-import { checkerTexture, rampGeometry, starGeometry } from "./geometry";
+import { checkerTexture, rampGeometry, starGeometry, vineTexture } from "./geometry";
+import { FACE } from "../game/climb";
 import { registerFade } from "../game/fade";
 
 const noRaycast = () => null;
@@ -17,7 +18,7 @@ type Look = "solid" | "ghost" | "invalid" | "erase";
  * camera fade it when it blocks the view).
  */
 export function BlockMesh({
-  block, look = "solid", fadeId, editor = false, selected = false, local = false, locked = false,
+  block, look = "solid", fadeId, editor = false, selected = false, local = false, locked = false, vinePreview,
 }: {
   block: Omit<Block, "id"> & { id?: string };
   look?: Look;
@@ -28,6 +29,8 @@ export function BlockMesh({
   local?: boolean;
   /** Goal flag only: grey with a padlock (it can't be reached yet) */
   locked?: boolean;
+  /** Painting: a side (local face bit) to highlight, and whether painting adds or removes vines there */
+  vinePreview?: { face: number; add: boolean } | undefined;
 }) {
   const piece = PIECES[block.piece];
   const [w, h, l] = piece.size;
@@ -94,6 +97,8 @@ export function BlockMesh({
             {material}
             {edges}
           </mesh>
+          {/* Climbable vines on painted sides */}
+          {!see && (!!block.vines || !!vinePreview) && <Vines mask={block.vines ?? 0} w={w} h={h} l={l} preview={vinePreview} />}
           {/* Tilting platforms: a pivot marker in the middle of the top */}
           {block.tilt && !see && (
             <mesh position={[0, h / 2 + 0.005, 0]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
@@ -198,5 +203,31 @@ function Padlock({ y }: { y: number }) {
         <meshBasicMaterial color="#78350f" />
       </mesh>
     </group>
+  );
+}
+
+/** Leafy vine panels on a block's painted sides (in its own frame), plus the paint tool's hover highlight. */
+function Vines({ mask, w, h, l, preview }: { mask: number; w: number; h: number; l: number; preview?: { face: number; add: boolean } | undefined }) {
+  const sides: { bit: number; pos: [number, number, number]; ry: number; width: number }[] = [
+    { bit: FACE.px, pos: [w / 2 + 0.012, 0, 0], ry: Math.PI / 2, width: l },
+    { bit: FACE.nx, pos: [-w / 2 - 0.012, 0, 0], ry: -Math.PI / 2, width: l },
+    { bit: FACE.pz, pos: [0, 0, l / 2 + 0.012], ry: 0, width: w },
+    { bit: FACE.nz, pos: [0, 0, -l / 2 - 0.012], ry: Math.PI, width: w },
+  ];
+  return (
+    <>
+      {sides.filter((sd) => mask & sd.bit).map((sd) => (
+        <mesh key={sd.bit} position={sd.pos} rotation-y={sd.ry} raycast={noRaycast}>
+          <planeGeometry args={[sd.width, h]} />
+          <meshStandardMaterial map={vineTexture(sd.width, h)} transparent alphaTest={0.05} roughness={0.85} polygonOffset polygonOffsetFactor={-2} />
+        </mesh>
+      ))}
+      {preview && sides.filter((sd) => sd.bit === preview.face).map((sd) => (
+        <mesh key={`p${sd.bit}`} position={[sd.pos[0] * 1.01, sd.pos[1], sd.pos[2] * 1.01]} rotation-y={sd.ry} raycast={noRaycast}>
+          <planeGeometry args={[sd.width, h]} />
+          <meshBasicMaterial color={preview.add ? "#22c55e" : "#ef4444"} transparent opacity={0.35} depthWrite={false} polygonOffset polygonOffsetFactor={-4} />
+        </mesh>
+      ))}
+    </>
   );
 }
