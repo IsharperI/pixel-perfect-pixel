@@ -6,9 +6,10 @@ import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
 import { useLevel } from "./levelStore";
 import { placementFor } from "./placement";
-import { BUILD_LIMIT, canPlace, centre, footprint, type Block } from "./pieces";
+import { BUILD_LIMIT, PIECES, canPlace, centre, footprint, type Block } from "./pieces";
 import { blocksInRect, cellRect, fillRect } from "./drag";
 import { positionAt, stopCentres } from "./motion";
+import { fullTilt } from "./tilt";
 import { stopFits } from "./levelStore";
 
 // The editor camera is remembered across Play sessions, so stopping play returns you to the same view
@@ -205,6 +206,9 @@ export function EditorScene() {
         <MoveGizmo key={`${selected.id}:${stopIndex}`} block={selected} blocks={blocks} stop={selected.move && stopIndex <= selected.move.stops.length ? stopIndex : 0} />
       )}
 
+      {/* Tilting platform (when selected): a see-through copy tipped all the way, rocking gently */}
+      {tool === "select" && selected?.tilt && <TiltPreview block={selected} />}
+
       {/* Moving platforms: their paths, and (when selected) their stops and a preview of the motion */}
       {blocks.filter((b) => b.move).map((b) => (
         <MotionPath key={b.id} block={b} selected={tool === "select" && b.id === selectedId} stopIndex={stopIndex} />
@@ -264,6 +268,27 @@ function MoveGizmo({ block, blocks, stop }: { block: Block; blocks: Block[]; sto
       )}
       <HeightGuide block={preview ? { ...block, ...preview } : home} />
     </>
+  );
+}
+
+/** A see-through copy of a tilting platform rocking out to how far it can tip. */
+function TiltPreview({ block }: { block: Block }) {
+  const g = useRef<THREE.Group>(null);
+  const [ax, az] = fullTilt(block.piece, block.tilt!.max);
+  useFrame(({ clock }) => {
+    if (!g.current) return;
+    const k = Math.sin(clock.elapsedTime * 1.3); // rock from one side to the other
+    g.current.rotation.set(ax * k, (block.rot * Math.PI) / 2, az * k, "YXZ");
+  });
+  const [cx, cy, cz] = centre(block);
+  const [w, h, l] = PIECES[block.piece].size;
+  return (
+    <group ref={g} position={[cx, cy, cz]}>
+      <mesh raycast={() => null}>
+        <boxGeometry args={[w * 0.98, h * 0.98, l * 0.98]} />
+        <meshBasicMaterial color="#8b5cf6" transparent opacity={0.22} depthWrite={false} />
+      </mesh>
+    </group>
   );
 }
 

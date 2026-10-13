@@ -59,8 +59,8 @@ export type Block = {
   id: string; piece: PieceId; x: number; y: number; z: number; rot: number;
   /** A moving platform */
   move?: Motion;
-  /** A seesaw platform that tips toward where you stand (pivot in the middle) */
-  tilt?: true;
+  /** A seesaw platform that tips toward where you stand (pivot in the middle), up to `max` degrees */
+  tilt?: { max: number };
 };
 
 /** Can this piece be made into a moving or tilting platform? (Plain solid blocks only, for now.) */

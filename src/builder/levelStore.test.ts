@@ -73,7 +73,11 @@ describe("level editor store", () => {
     S().place({ piece: "plank", x: 0, y: 2, z: 0, rot: 0 });
     const id = S().blocks[0]!.id;
     S().setTilt(id, true);
-    expect(S().blocks[0]!.tilt).toBe(true);
+    expect(S().blocks[0]!.tilt).toEqual({ max: 22 });
+    S().setTiltMax(id, 61);
+    expect(S().blocks[0]!.tilt).toEqual({ max: 61 });
+    S().setTiltMax(id, 400);
+    expect(S().blocks[0]!.tilt).toEqual({ max: 75 });
     S().addStop(id); // making it move stops it tilting
     expect(S().blocks[0]!.tilt).toBeUndefined();
     expect(S().blocks[0]!.move).toBeDefined();
@@ -82,7 +86,7 @@ describe("level editor store", () => {
     S().setTilt(id, false);
     expect(S().blocks[0]!.tilt).toBeUndefined();
     S().undo();
-    expect(S().blocks[0]!.tilt).toBe(true);
+    expect(S().blocks[0]!.tilt).toEqual({ max: 22 });
   });
 
   it("only lets plain blocks move", () => {

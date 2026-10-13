@@ -6,6 +6,7 @@
  */
 import { PIECES, canMove, canPlace, newId, type Block, type PieceId } from "./pieces";
 import { readMotion } from "./motion";
+import { readTilt } from "./tilt";
 import { readRules, rulesFromOldGoal, type Rules } from "./rules";
 
 export const LEVEL_FORMAT = "platformer-toolkit-3d/level";
@@ -59,8 +60,8 @@ export function readLevelFile(data: unknown): LevelData | null {
     if (PIECES[b.piece].unique && blocks.some((k) => k.piece === b.piece)) continue;
     if (!canPlace(b, blocks)) continue;
     const move = canMove(b.piece) ? readMotion(r["move"]) : undefined;
-    const tilt = !move && canMove(b.piece) && r["tilt"] === true;
-    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt: true as const } : {}) });
+    const tilt = !move && canMove(b.piece) ? readTilt(r["tilt"]) : undefined;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { BUILD_LIMIT, HEIGHT_LIMIT, PIECES, blankLevel, bounds, canMove, canPlace, newId, starterLevel, type Block, type Motion, type PieceId } from "./pieces";
 import { defaultMotion, nextStopOffset, type V3 } from "./motion";
+import { DEFAULT_TILT, TILT_MAX, TILT_MIN } from "./tilt";
 import type { LevelData } from "./levelFile";
 import { DEFAULT_RULES, type Rules } from "./rules";
 
@@ -55,6 +56,8 @@ type LevelState = {
   updateMotion: (id: string, patch: Partial<Motion>) => void;
   /** Turn a block into a tilting (seesaw) platform, or back into a still one */
   setTilt: (id: string, on: boolean) => void;
+  /** How far a tilting platform tips, in degrees */
+  setTiltMax: (id: string, max: number) => void;
   selectStop: (i: number) => void;
   addStop: (id: string) => void;
   removeStop: (id: string, i: number) => void;
@@ -78,7 +81,7 @@ type LevelState = {
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
 export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
-  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? false])]);
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? null])]);
 }
 
 /** The current level as data to save. */
@@ -234,9 +237,17 @@ export const useLevel = create<LevelState>((set, get) => {
       commit(blocks.map((x) => {
         if (x.id !== id) return x;
         const { move: _, tilt: _t, ...rest } = x;
-        return on ? { ...rest, tilt: true as const } : rest;
+        return on ? { ...rest, tilt: { max: DEFAULT_TILT } } : rest;
       }));
       set({ stopIndex: 0 });
+    },
+
+    setTiltMax: (id, max) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      const m = Math.min(TILT_MAX, Math.max(TILT_MIN, Math.round(max)));
+      if (!b?.tilt || b.tilt.max === m) return;
+      commit(blocks.map((x) => (x.id === id ? { ...x, tilt: { max: m } } : x)));
     },
 
     updateMotion: (id, patch) => {

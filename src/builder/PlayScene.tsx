@@ -152,7 +152,7 @@ function PlayTilter({ block }: { block: Block }) {
     let tx = 0, tz = 0, rate = LEVEL_RATE;
     if (c.stoodOn) {
       const [lx, lz] = toLocal(liveStats.x - at[0], liveStats.z - at[2], block.rot);
-      [tx, tz] = tiltTarget(block.piece, lx, lz);
+      [tx, tz] = tiltTarget(block.piece, lx, lz, block.tilt?.max);
       rate = TIP_RATE;
     }
     s.ax = approach(s.ax, tx, rate, dt);

@@ -7,6 +7,8 @@ import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSe
 import { BEHAVIOUR_COLOURS, PIECES, PIECE_ORDER, canMove, type Behaviour, type Motion } from "./pieces";
 import { MAX_STOPS } from "./levelStore";
 import { SPEEDS, WAITS, defaultMotion } from "./motion";
+import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
+import { useSettings } from "../game/settings";
 import { PieceIcon } from "./PieceIcon";
 
 const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
@@ -306,6 +308,7 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
             It tips toward whichever {block.piece === "plank" ? "end" : "side"} you stand on, like a seesaw, and slowly levels out when you step off.
             The pivot is in the middle.
           </p>
+          <TiltSlider id={block.id} max={block.tilt.max} />
           <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setTilt(block.id, false); }}>Stop it tilting</button>
         </>
       ) : !m ? (
@@ -346,6 +349,38 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
           <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setMotion(block.id, undefined); }}>Stop it moving</button>
         </>
       )}
+    </div>
+  );
+}
+
+/** How far a tilting platform tips. Past the character's Slide Angle, it slides them off. */
+function TiltSlider({ id, max }: { id: string; max: number }) {
+  const slide = useSettings((s) => s.values["slideSlope"] as number);
+  const drops = max > slide;
+  const feel = max <= 15 ? "A gentle wobble" : max <= 30 ? "A wobbly seesaw" : drops ? "Tips you off!" : "Very tippy";
+  return (
+    <div className="insp-row">
+      <span className="insp-label">How far it tips</span>
+      <div className="tilt-slider">
+        <input
+          type="range"
+          min={TILT_MIN}
+          max={TILT_MAX}
+          step={TILT_STEP}
+          value={max}
+          onChange={(e) => useLevel.getState().setTiltMax(id, Number(e.target.value))}
+          onPointerUp={(e) => (e.currentTarget as HTMLElement).blur()}
+          aria-label="How far it tips, in degrees"
+          style={{ ["--fill" as string]: `${((max - TILT_MIN) / (TILT_MAX - TILT_MIN)) * 100}%` }}
+        />
+        <strong>{max}°</strong>
+      </div>
+      <p className="insp-note" data-drops={drops}>
+        <b>{feel}</b>{" "}
+        {drops
+          ? `Steeper than your character's Slide Angle (${slide}°), so they'll slide off the low end.`
+          : `Your character can stand on it (their Slide Angle is ${slide}°).`}
+      </p>
     </div>
   );
 }

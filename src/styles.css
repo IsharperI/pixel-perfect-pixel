@@ -269,6 +269,10 @@
   .insp-stop { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; font-weight: 800; font-size: .8rem; background: #ea580c; color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px #ea580c; transition: all .12s; }
   .insp-stop[data-on="true"] { background: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
   .insp-stop[data-add] { background: var(--secondary); color: var(--foreground); box-shadow: 0 0 0 1px var(--border); border-style: dashed; border-color: var(--border); }
+  .tilt-slider { display: flex; align-items: center; gap: .6rem; }
+  .tilt-slider input { flex: 1; accent-color: #8b5cf6; }
+  .tilt-slider strong { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; font-size: .85rem; }
+  .insp-note[data-drops="true"] b { color: #7c3aed; }
   .insp-stopmoving { align-self: flex-start; font-size: .72rem; color: var(--muted-foreground); }
 
   /* Level settings panel */

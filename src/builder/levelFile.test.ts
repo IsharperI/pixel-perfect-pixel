@@ -26,9 +26,12 @@ describe("level files", () => {
   });
 
   it("saves tilting platforms (plain blocks only)", () => {
-    const blocks = [{ id: "a", piece: "plank" as const, x: 0, y: 1, z: 0, rot: 1, tilt: true as const }];
+    const blocks = [{ id: "a", piece: "plank" as const, x: 0, y: 1, z: 0, rot: 1, tilt: { max: 60 } }];
     const back = readLevelFile(JSON.parse(JSON.stringify(toLevelFile({ name: "T", rules: DEFAULT_RULES, bestTime: null, blocks }))))!;
-    expect(back.blocks[0]!.tilt).toBe(true);
+    expect(back.blocks[0]!.tilt).toEqual({ max: 60 });
+    // files from before the slider just said "tilt: true"; silly values are kept in range
+    const old = readLevelFile({ format: LEVEL_FORMAT, blocks: [{ piece: "cube", x: 0, y: 0, z: 0, tilt: true }, { piece: "cube", x: 2, y: 0, z: 0, tilt: { max: 500 } }] })!;
+    expect(old.blocks.map((b) => b.tilt)).toEqual([{ max: 22 }, { max: 75 }]);
     const bad = readLevelFile({ format: LEVEL_FORMAT, blocks: [{ piece: "ramp", x: 0, y: 0, z: 0, tilt: true }] })!;
     expect("tilt" in bad.blocks[0]!).toBe(false);
   });

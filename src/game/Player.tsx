@@ -76,6 +76,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     camTarget: spawnAt.clone(),
     lastPos: spawnAt.clone(), // player position last frame, for the leash camera
     riding: null as Carrier | null, // the moving platform we're standing on, if any
+    platSlide: 0, // speed sliding down a steeply tipped platform
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
@@ -182,9 +183,9 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
    * Moving platforms, as simple boxes: land on and stand on their tops (and ride them), and get
    * pushed out of their sides. Moves `next` in place; returns true if we're standing on one.
    */
-  const touchPlatforms = (start: { x: number; y: number; z: number }, next: { x: number; y: number; z: number }, riding: Carrier | null) => {
+  const touchPlatforms = (start: { x: number; y: number; z: number }, next: { x: number; y: number; z: number }, riding: Carrier | null, slideDeg: number, dt: number) => {
     const s = st.current;
-    let standing = false;
+    let standing = false, sliding = false;
     for (const pl of carriers.values()) {
       const ex = next.x - pl.x, ez = next.z - pl.z;
       // The top's height right under us (tilting platforms have a sloped top), measured within its edges
@@ -202,6 +203,16 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         s.riding = pl;
         pl.stoodOn = true;
         standing = true;
+        // Tipped steeper than the character's Slide Angle? Slide downhill, faster the steeper it is
+        const steep = (Math.acos(Math.min(1, pl.ny)) * 180) / Math.PI;
+        const h = Math.hypot(pl.nx, pl.nz);
+        if (steep > slideDeg && h > 0.01) {
+          s.platSlide += 14 * h * dt;
+          next.x += (pl.nx / h) * s.platSlide * dt;
+          next.z += (pl.nz / h) * s.platSlide * dt;
+          next.y = topAt(pl, next.x, next.z) + HALF + RADIUS + 0.01;
+          sliding = true;
+        }
         continue;
       }
       // Bumping into its side (or it moving into us): push out sideways, like a wall
@@ -218,6 +229,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         }
       }
     }
+    if (!sliding) s.platSlide = 0;
     return standing;
   };
 
@@ -463,7 +475,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     const next = { x: p.x + m.x, y: p.y + m.y + (carry ? carry.dy : 0), z: p.z + m.z };
     let groundedNow = controller.computedGrounded();
     s.riding = null;
-    if (carriers.size && touchPlatforms(p, next, carry)) groundedNow = true;
+    if (carriers.size && touchPlatforms(p, next, carry, num(S, "slideSlope"), dt)) groundedNow = true;
     // Remember touching a wall in mid-air (near-vertical surface) for wall jumps
     if (!groundedNow) {
       for (let i = 0; i < controller.numComputedCollisions(); i++) {
