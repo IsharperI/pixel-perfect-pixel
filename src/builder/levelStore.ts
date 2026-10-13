@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { PIECES, canPlace, newId, starterLevel, type Block, type PieceId } from "./pieces";
+import { PIECES, blankLevel, canPlace, newId, starterLevel, type Block, type PieceId } from "./pieces";
+import type { Goal, LevelData } from "./levelFile";
 
 export type Tool = "build" | "select" | "erase";
 export type Mode = "edit" | "play";
@@ -16,6 +17,17 @@ type LevelState = {
   selectedId: string | null;
   mode: Mode;
 
+  // About the level itself
+  /** Which browser save slot this level belongs to */
+  levelId: string;
+  name: string;
+  goal: Goal;
+  bestTime: number | null;
+  /** Fingerprint of the level as last saved/opened, to spot unsaved changes */
+  baselineSig: string;
+  /** Is the Level Settings panel open? */
+  panelOpen: boolean;
+
   setTool: (t: Tool) => void;
   setPiece: (p: PieceId) => void;
   rotate: () => void; // rotates the selected block (select tool) or the next block (build tool)
@@ -31,15 +43,43 @@ type LevelState = {
   redo: () => void;
   setMode: (m: Mode) => void;
   replaceAll: (blocks: Block[]) => void;
+
+  setName: (name: string) => void;
+  setGoal: (goal: Goal) => void;
+  setBestTime: (t: number | null) => void;
+  setPanelOpen: (open: boolean) => void;
+  /** Open a level (from a save slot or a file). `id` is its save slot, or a new one. */
+  loadLevel: (level: LevelData, id?: string) => void;
+  /** Start a new, nearly empty level */
+  newLevel: () => void;
+  /** Remember the current level as saved */
+  markSaved: () => void;
 };
+
+/** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
+export function levelSig(s: Pick<LevelState, "name" | "goal" | "blocks">): string {
+  return JSON.stringify([s.name, s.goal, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot])]);
+}
+
+/** The current level as data to save. */
+export function currentLevel(): LevelData {
+  const { name, goal, bestTime, blocks } = useLevel.getState();
+  return { name, goal, bestTime, blocks };
+}
+
+/** Are there changes since the level was last saved or opened? */
+export const useDirty = () => useLevel((s) => levelSig(s) !== s.baselineSig);
+
+const newLevelId = () => `lvl${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export const useLevel = create<LevelState>((set, get) => {
   /** Apply a change to the blocks, recording the old version for undo. */
   const commit = (blocks: Block[]) =>
     set((s) => ({ blocks, past: [...s.past, s.blocks].slice(-HISTORY_LIMIT), future: [] }));
 
+  const starter = starterLevel();
   return {
-    blocks: starterLevel(),
+    blocks: starter,
     past: [],
     future: [],
     tool: "build",
@@ -47,6 +87,13 @@ export const useLevel = create<LevelState>((set, get) => {
     rot: 0,
     selectedId: null,
     mode: "edit",
+
+    levelId: newLevelId(),
+    name: "My first level",
+    goal: "flag",
+    bestTime: null,
+    baselineSig: levelSig({ name: "My first level", goal: "flag", blocks: starter }),
+    panelOpen: false,
 
     setTool: (tool) => set({ tool, selectedId: tool === "select" ? get().selectedId : null }),
     setPiece: (piece) => set({ piece, tool: "build", selectedId: null }),
@@ -134,5 +181,23 @@ export const useLevel = create<LevelState>((set, get) => {
     setMode: (mode) => set({ mode, selectedId: null }),
 
     replaceAll: (blocks) => commit(blocks),
+
+    setName: (name) => set({ name: name.slice(0, 40) }),
+    setGoal: (goal) => set({ goal }),
+    setBestTime: (bestTime) => set({ bestTime }),
+    setPanelOpen: (panelOpen) => set({ panelOpen }),
+
+    loadLevel: (level, id) => {
+      set({
+        ...level,
+        levelId: id ?? newLevelId(),
+        past: [], future: [], selectedId: null, mode: "edit",
+        baselineSig: levelSig(level),
+      });
+    },
+
+    newLevel: () => get().loadLevel({ name: "New level", goal: "flag", bestTime: null, blocks: blankLevel() }),
+
+    markSaved: () => set((s) => ({ baselineSig: levelSig(s) })),
   };
 });

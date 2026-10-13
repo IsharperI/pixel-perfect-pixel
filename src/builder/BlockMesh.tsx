@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import * as THREE from "three";
 import { BEHAVIOUR_COLOURS, PIECES, centre, type Block } from "./pieces";
-import { rampGeometry } from "./geometry";
+import { checkerTexture, rampGeometry, starGeometry } from "./geometry";
 import { registerFade } from "../game/fade";
 
 const noRaycast = () => null;
@@ -79,6 +80,10 @@ export function BlockMesh({
             </>
           )}
         </>
+      ) : piece.behaviour === "goal" ? (
+        <GoalFlag id={block.id} h={h} see={see} tint={look === "solid" ? null : colour} edge={edges} selected={selected} fadeRef={mat} />
+      ) : piece.behaviour === "star" ? (
+        <Star id={block.id} see={see} colour={colour} selected={selected} edgeColour={selected ? "#2563eb" : look === "invalid" ? "#c81e1e" : colours.edge} />
       ) : (
         <mesh {...(geometry ? { geometry } : {})} castShadow={!see} receiveShadow userData={{ blockId: block.id }}>
           {!geometry && <boxGeometry args={[w, h, l]} />}
@@ -86,6 +91,77 @@ export function BlockMesh({
           {edges}
         </mesh>
       )}
+    </group>
+  );
+}
+
+/** The goal: a checkered pad with a tall flag pole and a checkered flag. */
+function GoalFlag({ id, h, see, tint, edge, selected, fadeRef }: {
+  id: string | undefined; h: number; see: boolean; tint: string | null; edge: React.ReactNode; selected: boolean;
+  fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>;
+}) {
+  const map = useMemo(() => checkerTexture(), []);
+  const flag = useRef<THREE.Mesh>(null);
+  // A gentle flutter
+  useFrame(({ clock }) => { if (flag.current) flag.current.rotation.y = Math.sin(clock.elapsedTime * 2.2) * 0.18; });
+  const look = { transparent: see, opacity: see ? 0.5 : 1, depthWrite: !see };
+  const glow = { emissive: selected ? "#3b82f6" : "#000000", emissiveIntensity: selected ? 0.35 : 0 };
+  const bottom = -h / 2;
+  return (
+    <>
+      <mesh position={[0, bottom + 0.1, 0]} castShadow={!see} receiveShadow userData={{ blockId: id }}>
+        <boxGeometry args={[0.92, 0.2, 0.92]} />
+        <meshStandardMaterial ref={fadeRef} {...(tint ? { color: tint } : { map })} roughness={0.7} {...look} {...glow} {...(see ? {} : STENCIL_LEVEL)} />
+        {edge}
+      </mesh>
+      <mesh position={[0, bottom + 1.2, 0]} castShadow={!see} userData={{ blockId: id }}>
+        <cylinderGeometry args={[0.04, 0.04, 2, 10]} />
+        <meshStandardMaterial color={tint ?? "#64748b"} metalness={0.4} roughness={0.4} {...look} {...glow} />
+      </mesh>
+      <mesh position={[0, bottom + 2.24, 0]} raycast={noRaycast}>
+        <sphereGeometry args={[0.08, 12, 8]} />
+        <meshStandardMaterial color={tint ?? "#fbbf24"} {...look} />
+      </mesh>
+      <group position={[0, bottom + 1.9, 0]}>
+        <mesh ref={flag} position={[0, 0, 0]} raycast={noRaycast}>
+          <group position={[0.36, 0, 0]}>
+            <mesh castShadow={!see} userData={{ blockId: id }}>
+              <boxGeometry args={[0.7, 0.46, 0.03]} />
+              <meshStandardMaterial {...(tint ? { color: tint } : { map })} side={THREE.DoubleSide} roughness={0.8} {...look} {...glow} />
+            </mesh>
+          </group>
+        </mesh>
+      </group>
+    </>
+  );
+}
+
+let starGeo: THREE.BufferGeometry | null = null;
+const sharedStar = () => (starGeo ??= starGeometry()); // one shared shape for every star
+
+/** A spinning, bobbing gold star. */
+function Star({ id, see, colour, selected, edgeColour }: { id: string | undefined; see: boolean; colour: string; selected: boolean; edgeColour: string }) {
+  const spin = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (!spin.current) return;
+    spin.current.rotation.y = clock.elapsedTime * 1.8;
+    spin.current.position.y = Math.sin(clock.elapsedTime * 2.5) * 0.06;
+  });
+  return (
+    <group ref={spin}>
+      <mesh geometry={sharedStar()} castShadow={!see} userData={{ blockId: id }}>
+        <meshStandardMaterial
+          color={colour}
+          metalness={0.35}
+          roughness={0.3}
+          emissive={selected ? "#3b82f6" : colour}
+          emissiveIntensity={selected ? 0.45 : 0.25}
+          transparent={see}
+          opacity={see ? 0.5 : 1}
+          depthWrite={!see}
+        />
+        <Edges color={edgeColour} threshold={25} raycast={noRaycast} />
+      </mesh>
     </group>
   );
 }

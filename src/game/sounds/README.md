@@ -14,6 +14,8 @@ named after the sound it replaces:
 | `exhale.mp3` | exhaling out of a Float              |
 | `homing.mp3` | starting a homing attack dash        |
 | `hit.mp3`    | hitting a homing target              |
+| `star.mp3`   | collecting a star (Level Builder)    |
+| `win.mp3`    | finishing a level (Level Builder)    |
 
 - `.mp3`, `.ogg`, `.wav` and `.m4a` all work.
 - Files are picked up automatically; no code changes needed.

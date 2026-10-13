@@ -4,7 +4,7 @@ import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type Rapie
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit, type SkidStyle } from "./sfx";
+import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit } from "./sfx";
 import { TARGETS, homingState, findLockTarget, popTarget } from "./targets";
 import { CUSTOM_MODEL_URL, type AnimState } from "./characterModel";
 import { CustomModel, ModelErrorBoundary, useGlbCheck } from "./CustomModel";
@@ -647,7 +647,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       if (skid && !s.skidSoundPlayed && now - s.skidStartedAt >= 0.06 && now - s.lastSkidSoundAt > 0.5) {
         s.skidSoundPlayed = true;
         s.lastSkidSoundAt = now;
-        if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength, str(S, "skidSound") as SkidStyle);
+        if (bool(S, "sounds")) playSkid(num(S, "soundVolume"), strength);
       }
       if (skid && bool(S, "dust")) {
         // A steady stream of small puffs from the feet, faster the quicker you're going
@@ -822,6 +822,8 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     if (silhouette.current) silhouette.current.visible = bool(S, "playerSilhouette");
 
     liveStats.speed = hs;
+    const at = b.translation(); // the body's centre, for things like collecting stars
+    liveStats.x = at.x; liveStats.y = at.y; liveStats.z = at.z;
     liveStats.move = s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;

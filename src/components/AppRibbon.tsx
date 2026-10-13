@@ -4,11 +4,14 @@ import { Blocks, FolderOpen, Save, SlidersHorizontal } from "lucide-react";
 import { useSettings } from "../game/settings";
 import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
 
-/** Top ribbon shared by every page: Save/Load, the app name, and the mode tabs. */
-export function AppRibbon() {
+/**
+ * Top ribbon shared by every page: Save/Load, the app name, and the mode tabs.
+ * Pages can swap in their own Save/Load (the Level Builder saves levels).
+ */
+export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
   return (
     <header className="app-ribbon">
-      <SaveLoad />
+      {saveLoad ?? <SaveLoad />}
       <span className="app-ribbon-title font-display">Platformer Toolkit 3D</span>
       <nav className="app-ribbon-tabs" aria-label="Mode">
         <Link to="/" className="app-tab" activeOptions={{ exact: true }} activeProps={{ "data-active": "true" }}>

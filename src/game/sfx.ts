@@ -130,7 +130,7 @@ export function playExhale(volume: number) {
 // Any audio file dropped into src/game/sounds/ named after a sound (jump, land,
 // skid, flap, exhale) replaces the generated version. Found automatically at
 // build time, so there's nothing to register. See src/game/sounds/README.md.
-export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit";
+export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win";
 const FILES = import.meta.glob("./sounds/*.{mp3,ogg,wav,m4a}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 const CUSTOM_URLS: Partial<Record<SoundName, string>> = {};
 for (const [path, url] of Object.entries(FILES)) {
@@ -167,16 +167,12 @@ function playCustom(name: SoundName, volume: number, rate = 1) {
   return true;
 }
 
-export type SkidStyle = "retro" | "scuff" | "screech";
-
-/** Skid sound in the chosen style. `strength` 0–1 scales it with speed. */
-export function playSkid(volume: number, strength: number, style: SkidStyle) {
+/** Skid sound (the Retro brake, or a custom skid file). `strength` 0–1 scales it with speed. */
+export function playSkid(volume: number, strength: number) {
   const k = Math.min(Math.max(strength, 0), 1);
   // A custom skid file wins; slightly louder and higher-pitched at speed
   if (audio() && playCustom("skid", (0.35 + 0.3 * k) * volume, 0.94 + 0.12 * k)) return;
-  if (style === "retro") return skidRetro(volume, strength);
-  if (style === "scuff") return skidScuff(volume, strength);
-  return skidScreech(volume, strength);
+  skidRetro(volume, strength);
 }
 
 /** Wave-shaper curve that snaps the signal to a few levels, for a crunchy old-console sound. */
@@ -249,74 +245,6 @@ function skidRetro(volume: number, strength: number) {
   o.stop(t + dur + 0.05); n.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
 }
 
-/** Scuff: a short, soft shoe-scrape. */
-function skidScuff(volume: number, strength: number) {
-  const a = audio();
-  if (!a || volume <= 0) return;
-  const t = a.currentTime;
-  const k = Math.min(Math.max(strength, 0), 1);
-  const dur = 0.16 + 0.1 * k;
-  const n = a.createBufferSource();
-  n.buffer = noiseBuffer(a);
-  n.loop = true;
-  const f = a.createBiquadFilter();
-  f.type = "bandpass";
-  f.Q.value = 1.2;
-  f.frequency.setValueAtTime(900 + 500 * k, t);
-  f.frequency.exponentialRampToValueAtTime(500 + 200 * k, t + dur);
-  const g = a.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime((0.2 + 0.25 * k) * volume, t + 0.015);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  n.connect(f).connect(g).connect(a.destination);
-  n.start(t);
-  n.stop(t + dur + 0.05);
-}
-
-/** Screech: a short tire-style squeal. */
-function skidScreech(volume: number, strength: number) {
-  const a = audio();
-  if (!a || volume <= 0) return;
-  const t = a.currentTime;
-  const k = Math.min(Math.max(strength, 0), 1);
-  const dur = 0.25 + 0.2 * k;
-
-  // Scrape: noise through a narrow, falling band-pass filter
-  const n = a.createBufferSource();
-  n.buffer = noiseBuffer(a);
-  n.loop = true;
-  const f = a.createBiquadFilter();
-  f.type = "bandpass";
-  f.Q.value = 9;
-  f.frequency.setValueAtTime(1900 + 900 * k, t);
-  f.frequency.exponentialRampToValueAtTime(1300 + 500 * k, t + dur);
-  const ng = a.createGain();
-  ng.gain.setValueAtTime(0.0001, t);
-  ng.gain.exponentialRampToValueAtTime((0.25 + 0.35 * k) * volume, t + 0.02);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  n.connect(f).connect(ng).connect(a.destination);
-  n.start(t);
-  n.stop(t + dur + 0.05);
-
-  // Squeal: a faint wavering tone on top
-  const o = a.createOscillator();
-  const og = a.createGain();
-  const lfo = a.createOscillator();
-  const lg = a.createGain();
-  o.type = "triangle";
-  o.frequency.setValueAtTime(1700 + 600 * k, t);
-  o.frequency.exponentialRampToValueAtTime(1250 + 300 * k, t + dur);
-  lfo.frequency.value = 28;
-  lg.gain.value = 40;
-  lfo.connect(lg).connect(o.frequency);
-  og.gain.setValueAtTime(0.0001, t);
-  og.gain.exponentialRampToValueAtTime(0.05 * volume * (0.4 + 0.6 * k), t + 0.03);
-  og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(og).connect(a.destination);
-  o.start(t); lfo.start(t);
-  o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
-}
-
 /** Homing dash: a quick rising whoosh. */
 export function playHoming(volume: number) {
   const a = audio();
@@ -358,4 +286,42 @@ export function playHit(volume: number) {
     o.start(t + delay!);
     o.stop(t + delay! + 0.3);
   });
+}
+
+/** One bright bell-like note, starting `at` seconds from now. */
+function chime(a: AudioContext, freq: number, at: number, length: number, volume: number, type: OscillatorType = "triangle") {
+  const t = a.currentTime + at;
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(volume, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + length);
+  o.connect(g).connect(a.destination);
+  o.start(t);
+  o.stop(t + length + 0.02);
+}
+
+/** A sparkly two-note "ding-ding" for picking up a star. Each star in a row rises a little in pitch. */
+export function playStar(volume: number, step = 0) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("star", 0.6 * volume, 1 + Math.min(step, 8) * 0.04)) return;
+  const k = Math.pow(2, Math.min(step, 8) / 12);
+  chime(a, 988 * k, 0, 0.18, 0.16 * volume);
+  chime(a, 1319 * k, 0.07, 0.3, 0.16 * volume);
+  chime(a, 2637 * k, 0.07, 0.12, 0.04 * volume, "sine");
+}
+
+/** A happy rising fanfare for finishing a level. */
+export function playWin(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("win", 0.7 * volume)) return;
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((f, i) => chime(a, f, i * 0.11, 0.25, 0.15 * volume, "square"));
+  chime(a, 1047, 0.44, 0.7, 0.14 * volume, "triangle");
+  chime(a, 1319, 0.44, 0.7, 0.1 * volume, "triangle");
+  chime(a, 1568, 0.44, 0.7, 0.08 * volume, "triangle");
 }

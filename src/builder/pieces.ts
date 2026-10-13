@@ -4,8 +4,8 @@
  * Colour = behaviour: every block's colour tells players what it does.
  */
 
-export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start";
-export type Behaviour = "solid" | "slope" | "start";
+export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star";
 
 export type Piece = {
   label: string;
@@ -25,15 +25,19 @@ export const PIECES: Record<PieceId, Piece> = {
   ramp: { label: "Ramp", size: [1, 1, 2], behaviour: "slope", ramp: true },
   steep: { label: "Steep ramp", size: [1, 1, 1], behaviour: "slope", ramp: true },
   start: { label: "Start", size: [1, 1, 1], behaviour: "start", unique: true },
+  goal: { label: "Goal flag", size: [1, 1, 1], behaviour: "goal", unique: true },
+  star: { label: "Star", size: [1, 1, 1], behaviour: "star" },
 };
 
-export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "start"];
+export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "start", "goal", "star"];
 
 /** Colour for each behaviour (and the legend). */
 export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string; name: string; meaning: string }> = {
   solid: { colour: "#e9cf9d", edge: "#b8955a", name: "Sand", meaning: "Solid ground" },
   slope: { colour: "#f59ac0", edge: "#c45d8a", name: "Pink", meaning: "Slope: changes your speed" },
   start: { colour: "#ffffff", edge: "#7c8a99", name: "White pad", meaning: "Where you start" },
+  goal: { colour: "#ffffff", edge: "#1f2937", name: "Checkered flag", meaning: "The goal" },
+  star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Star: collect it" },
 };
 
 export type Block = { id: string; piece: PieceId; x: number; y: number; z: number; rot: number };
@@ -95,7 +99,16 @@ export function starterLevel(): Block[] {
     // A ramp up to a floating platform
     b("ramp", 1, 1, -2, 2),
     b("wide", 0, 1, -4), b("wide", 0, 1, -6),
-    // A few stepping cubes
+    // A few stepping cubes up to the goal
     b("cube", -2, 2, -6), b("cube", -4, 3, -6), b("plank", -7, 4, -6),
+    b("goal", -7, 5, -6),
+    // Stars to collect
+    b("star", 1, 1, 1), b("star", 1, 2, -5), b("star", -4, 4, -6),
   ];
+}
+
+/** A fresh, nearly empty level: a small floor with the Start pad. */
+export function blankLevel(): Block[] {
+  const b = (piece: PieceId, x: number, y: number, z: number): Block => ({ id: newId(), piece, x, y, z, rot: 0 });
+  return [b("wide", -2, 0, -2), b("wide", 0, 0, -2), b("wide", -2, 0, 0), b("wide", 0, 0, 0), b("start", -1, 1, -1)];
 }

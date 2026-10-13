@@ -32,6 +32,28 @@ export function PieceIcon({ piece, size = 34 }: { piece: PieceId; size?: number 
           <path d="M20 6 L30 9.5 L20 13 Z" fill="#22c55e" stroke="#15803d" strokeWidth="1" />
         </>
       )}
+      {piece === "goal" && (
+        <>
+          <defs>
+            <pattern id="pi-check" width="6" height="6" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="#fff" /><rect width="3" height="3" fill="#1f2937" /><rect x="3" y="3" width="3" height="3" fill="#1f2937" />
+            </pattern>
+          </defs>
+          <path d="M6 30 L20 23 L34 30 L20 37 Z" fill="url(#pi-check)" stroke="#1f2937" strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M14 30 L14 4" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="14" cy="4" r="1.8" fill="#fbbf24" />
+          <path d="M14 5 L32 7 L32 18 L14 16 Z" fill="url(#pi-check)" stroke="#1f2937" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )}
+      {piece === "star" && (
+        <path
+          d="M20 5 L24.1 14.4 L34.3 15.4 L26.6 22.2 L28.8 32.2 L20 27 L11.2 32.2 L13.4 22.2 L5.7 15.4 L15.9 14.4 Z"
+          fill={top}
+          stroke={line}
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      )}
     </svg>
   );
 
