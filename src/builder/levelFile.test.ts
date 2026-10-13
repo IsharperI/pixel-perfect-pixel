@@ -17,6 +17,14 @@ describe("level files", () => {
     expect(back.blocks.map(({ id: _, ...b }) => b)).toEqual(blocks.map(({ id: _, ...b }) => b));
   });
 
+  it("saves moving platforms", () => {
+    const move = { stops: [[2, 1, 0]] as [number, number, number][], speed: 1.5, wait: 0, trigger: "step" as const, loop: true };
+    const blocks = [{ id: "a", piece: "wide" as const, x: 0, y: 1, z: 0, rot: 0, move }, { id: "b", piece: "ramp" as const, x: 4, y: 0, z: 0, rot: 0 }];
+    const back = readLevelFile(JSON.parse(JSON.stringify(toLevelFile({ name: "M", rules: DEFAULT_RULES, bestTime: null, blocks }))))!;
+    expect(back.blocks[0]!.move).toEqual(move);
+    expect("move" in back.blocks[1]!).toBe(false);
+  });
+
   it("rejects things that aren't level files", () => {
     expect(readLevelFile(null)).toBeNull();
     expect(readLevelFile({ format: "platformer-toolkit-3d/character", values: {} })).toBeNull();

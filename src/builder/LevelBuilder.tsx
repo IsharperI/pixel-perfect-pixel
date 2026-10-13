@@ -68,7 +68,12 @@ function useBuilderKeys() {
       else if (e.code === "KeyL") S.setPanelOpen(!S.panelOpen);
       else if (TOOL_KEYS[e.code]) S.setTool(TOOL_KEYS[e.code]!);
       else if (/^Digit[1-9]$/.test(e.code)) { const p = PIECE_ORDER[Number(e.code.slice(5)) - 1]; if (p) S.setPiece(p); }
-      else if ((e.code === "Delete" || e.code === "Backspace") && S.selectedId) { e.preventDefault(); S.remove(S.selectedId); }
+      else if ((e.code === "Delete" || e.code === "Backspace") && S.selectedId) {
+        e.preventDefault();
+        // With a stop of a moving platform picked, remove just that stop
+        if (S.stopIndex > 0 && S.blocks.find((b) => b.id === S.selectedId)?.move) S.removeStop(S.selectedId, S.stopIndex);
+        else S.remove(S.selectedId);
+      }
       else if (e.code === "Escape") S.select(null);
     };
     window.addEventListener("keydown", down);

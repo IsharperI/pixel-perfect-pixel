@@ -245,6 +245,29 @@
     background: color-mix(in oklch, var(--card) 88%, transparent); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-panel); }
   @media (max-width: 900px) { .builder-hint { display: none; } }
 
+  /* Selected-piece inspector (moving platforms) */
+  .insp { position: absolute; top: 72px; right: 14px; z-index: 22; width: 290px; display: flex; flex-direction: column; gap: .5rem; padding: .75rem .85rem .8rem;
+    background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); box-shadow: var(--shadow-panel); transition: right .35s cubic-bezier(.2,.8,.2,1); }
+  .insp[data-panel="true"] { right: 372px; }
+  .insp-head { display: flex; align-items: center; justify-content: space-between; }
+  .insp-title { font-weight: 800; font-size: .9rem; }
+  .insp-x { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; color: var(--muted-foreground); }
+  .insp-x:hover { background: var(--secondary); color: var(--foreground); }
+  .insp-note { font-size: .72rem; color: var(--muted-foreground); line-height: 1.35; }
+  .insp-remove { display: block; margin-top: .2rem; font-size: .72rem; }
+  .insp-make { display: flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem; border-radius: .6rem; font-weight: 800; font-size: .9rem; background: #fb923c; color: #fff; box-shadow: 0 4px 14px -4px #fb923c; transition: all .15s; }
+  .insp-make:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .insp-row { display: flex; flex-direction: column; gap: .25rem; }
+  .insp-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-foreground); }
+  .insp-seg { display: flex; gap: 3px; padding: 3px; border-radius: .6rem; background: var(--secondary); }
+  .insp-seg button { flex: 1; padding: .3rem .2rem; border-radius: .45rem; font-size: .72rem; font-weight: 600; color: var(--muted-foreground); transition: all .12s; }
+  .insp-seg button[data-on="true"] { background: var(--card); color: var(--foreground); box-shadow: 0 1px 3px oklch(0.3 0.05 260 / .18); outline: 2px solid #fb923c; }
+  .insp-stops { display: flex; flex-wrap: wrap; gap: 5px; }
+  .insp-stop { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; font-weight: 800; font-size: .8rem; background: #ea580c; color: #fff; border: 2px solid #fff; box-shadow: 0 0 0 1px #ea580c; transition: all .12s; }
+  .insp-stop[data-on="true"] { background: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
+  .insp-stop[data-add] { background: var(--secondary); color: var(--foreground); box-shadow: 0 0 0 1px var(--border); border-style: dashed; border-color: var(--border); }
+  .insp-stopmoving { align-self: flex-start; font-size: .72rem; color: var(--muted-foreground); }
+
   /* Level settings panel */
   .level-name { display: block; width: 100%; font-size: 1.25rem; font-weight: 700; letter-spacing: -.01em; background: transparent; border: 1px solid transparent; border-radius: .45rem; padding: .05rem .3rem; margin-left: -.3rem; }
   .level-name:hover { border-color: var(--border); }

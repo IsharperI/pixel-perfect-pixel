@@ -4,7 +4,8 @@
  *   { format: "platformer-toolkit-3d/level", version: 2, name, rules, bestTime, blocks: [...] }
  * Version 1 files (a single `goal` instead of `rules`) still open.
  */
-import { PIECES, canPlace, newId, type Block, type PieceId } from "./pieces";
+import { PIECES, canMove, canPlace, newId, type Block, type PieceId } from "./pieces";
+import { readMotion } from "./motion";
 import { readRules, rulesFromOldGoal, type Rules } from "./rules";
 
 export const LEVEL_FORMAT = "platformer-toolkit-3d/level";
@@ -30,7 +31,7 @@ export function toLevelFile(level: LevelData) {
     rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
-    blocks: level.blocks.map(({ piece, x, y, z, rot }) => ({ piece, x, y, z, rot })),
+    blocks: level.blocks.map(({ piece, x, y, z, rot, move }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}) })),
   };
 }
 
@@ -57,7 +58,8 @@ export function readLevelFile(data: unknown): LevelData | null {
     const b = { piece: piece as PieceId, x, y, z, rot: ((rot % 4) + 4) % 4 };
     if (PIECES[b.piece].unique && blocks.some((k) => k.piece === b.piece)) continue;
     if (!canPlace(b, blocks)) continue;
-    blocks.push({ ...b, id: newId() });
+    const move = canMove(b.piece) ? readMotion(r["move"]) : undefined;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";

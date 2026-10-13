@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
+import { carriers, type Carrier } from "./carriers";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
@@ -74,6 +75,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     camPitch: 0,
     camTarget: spawnAt.clone(),
     lastPos: spawnAt.clone(), // player position last frame, for the leash camera
+    groundCollider: -1, // handle of what we stood on last frame (from the physics contacts), for moving platforms
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
@@ -185,9 +187,19 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
 
     // ---- the ground under us (for slopes): normal of whatever is just below the body
     let groundN: { x: number; y: number; z: number } | null = null;
-    if (s.grounded) {
-      const gh = world.castRayAndGetNormal(new rapier.Ray(b.translation(), { x: 0, y: -1, z: 0 }), HALF + RADIUS + 0.6, true, undefined, undefined, c);
-      if (gh && gh.normal.y > 0.05) groundN = gh.normal;
+    let carry: Carrier | null = null;
+    const gh = s.grounded || s.vel.y <= 0.1
+      ? world.castRayAndGetNormal(new rapier.Ray(b.translation(), { x: 0, y: -1, z: 0 }), HALF + RADIUS + 0.6, true, undefined, undefined, c)
+      : null;
+    if (s.grounded && gh && gh.normal.y > 0.05) groundN = gh.normal;
+    // Standing on a moving platform? It carries us along. What we're standing on comes from last
+    // frame's contacts (they cover our whole base, so it works right up to a platform's edge), or
+    // failing that the ray straight down. The physics engine can briefly report "not grounded" when
+    // the floor slides under us, so any platform contact counts as long as we're not jumping up.
+    if (s.grounded || s.vel.y <= 0.1) {
+      carry = carriers.get(s.groundCollider) ?? null;
+      if (!carry && gh && gh.timeOfImpact < HALF + RADIUS + 0.25) carry = carriers.get(gh.collider.handle) ?? null;
+      if (carry) carry.stoodOn = true;
     }
 
     // ---- camera orbit input
@@ -407,11 +419,27 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         tmp.v.y = (-(s.vel.x * groundN.x + s.vel.z * groundN.z) / groundN.y) * dt - 0.01;
       }
     }
+    // Riding a platform: its sideways movement goes through a collision check (so it can't push
+    // us into a wall); its up/down movement is added straight on, since we move with it
+    // (Worked out first, in its own check that ignores the platform itself, so only walls stop it)
+    let rideX = 0, rideZ = 0;
+    if (carry && (carry.dx || carry.dz)) {
+      const ride = carry;
+      controller.computeColliderMovement(c, { x: carry.dx, y: 0, z: carry.dz }, undefined, undefined, (other) => carriers.get(other.handle) !== ride);
+      const r = controller.computedMovement();
+      rideX = r.x; rideZ = r.z;
+    }
     controller.computeColliderMovement(c, tmp.v);
     const m = controller.computedMovement();
     const p = b.translation();
-    const next = { x: p.x + m.x, y: p.y + m.y, z: p.z + m.z };
+    const next = { x: p.x + m.x + rideX, y: p.y + m.y + (carry ? carry.dy : 0), z: p.z + m.z + rideZ };
     const groundedNow = controller.computedGrounded();
+    // Remember what we're standing on (the floor-like contact), for moving platforms next frame
+    s.groundCollider = -1;
+    for (let i = 0; i < controller.numComputedCollisions(); i++) {
+      const col = controller.computedCollision(i);
+      if (col?.collider && col.normal1.y > 0.5) { s.groundCollider = col.collider.handle; break; }
+    }
     // Remember touching a wall in mid-air (near-vertical surface) for wall jumps
     if (!groundedNow) {
       for (let i = 0; i < controller.numComputedCollisions(); i++) {

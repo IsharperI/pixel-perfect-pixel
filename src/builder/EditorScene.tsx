@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Grid, OrbitControls, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 import { BlockMesh } from "./BlockMesh";
@@ -8,6 +8,8 @@ import { useLevel } from "./levelStore";
 import { placementFor } from "./placement";
 import { BUILD_LIMIT, canPlace, centre, footprint, type Block } from "./pieces";
 import { blocksInRect, cellRect, fillRect } from "./drag";
+import { positionAt, stopCentres } from "./motion";
+import { stopFits } from "./levelStore";
 
 // The editor camera is remembered across Play sessions, so stopping play returns you to the same view
 const savedView = { pos: new THREE.Vector3(9, 11, 14), target: new THREE.Vector3(0, 1, -2) };
@@ -41,6 +43,7 @@ export function EditorScene() {
   const piece = useLevel((s) => s.piece);
   const rot = useLevel((s) => s.rot);
   const selectedId = useLevel((s) => s.selectedId);
+  const stopIndex = useLevel((s) => s.stopIndex);
   const [ghost, setGhost] = useState<Ghost | null>(null);
   const [eraseId, setEraseId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -192,13 +195,20 @@ export function EditorScene() {
         {/* The water you build on (height 0): click it to place blocks */}
         <Water />
         {blocks.map((b) => (
-          <BlockMesh key={b.id} block={b} editor look={b.id === eraseId || erasing?.has(b.id) ? "erase" : "solid"} selected={b.id === selectedId && tool === "select"} />
+          <BlockMesh key={b.id} block={b} editor look={b.id === eraseId || erasing?.has(b.id) ? "erase" : "solid"} selected={b.id === selectedId && tool === "select" && (!b.move || stopIndex === 0)} />
         ))}
       </group>
 
       {tool === "build" && ghost && <BlockMesh block={{ piece, rot, x: ghost.x, y: ghost.y, z: ghost.z }} look={ghost.ok ? "ghost" : "invalid"} />}
       {tool === "build" && ghost && ghost.y > 0 && <HeightGuide block={{ piece, rot, x: ghost.x, y: ghost.y, z: ghost.z }} />}
-      {tool === "select" && selected && <MoveGizmo block={selected} blocks={blocks} />}
+      {tool === "select" && selected && (
+        <MoveGizmo key={`${selected.id}:${stopIndex}`} block={selected} blocks={blocks} stop={selected.move && stopIndex <= selected.move.stops.length ? stopIndex : 0} />
+      )}
+
+      {/* Moving platforms: their paths, and (when selected) their stops and a preview of the motion */}
+      {blocks.filter((b) => b.move).map((b) => (
+        <MotionPath key={b.id} block={b} selected={tool === "select" && b.id === selectedId} stopIndex={stopIndex} />
+      ))}
 
       {/* Drag previews */}
       {drag?.kind === "build" && drag.list.map((b, i) => <BlockMesh key={i} block={b} look="ghost" />)}
@@ -208,11 +218,16 @@ export function EditorScene() {
   );
 }
 
-/** Drag the selected block along x/y/z with arrows; it snaps to the grid and won't overlap others. */
-function MoveGizmo({ block, blocks }: { block: Block; blocks: Block[] }) {
+/**
+ * Drag the selected block along x/y/z with arrows; it snaps to the grid and won't overlap others.
+ * For a moving platform, `stop` 1+ moves one of its stops instead (stops may pass through blocks).
+ */
+function MoveGizmo({ block, blocks, stop }: { block: Block; blocks: Block[]; stop: number }) {
   const proxy = useRef<THREE.Group>(null);
   const [preview, setPreview] = useState<Ghost | null>(null);
-  const [cx, cy, cz] = centre(block);
+  const off = stop > 0 ? block.move!.stops[stop - 1]! : ([0, 0, 0] as const);
+  const home = { ...block, x: block.x + off[0], y: block.y + off[1], z: block.z + off[2] };
+  const [cx, cy, cz] = centre(home);
 
   // Put the gizmo at the block's centre (again) whenever the block moves or rotates
   useEffect(() => { proxy.current?.position.set(cx, cy, cz); }, [cx, cy, cz]);
@@ -221,7 +236,8 @@ function MoveGizmo({ block, blocks }: { block: Block; blocks: Block[] }) {
     const p = proxy.current!.position;
     const [fx, h, fz] = footprint(block.piece, block.rot);
     const at = { x: Math.round(p.x - fx / 2), y: Math.max(0, Math.round(p.y - h / 2)), z: Math.round(p.z - fz / 2) };
-    return { ...at, ok: canPlace({ ...block, ...at }, blocks, block.id) };
+    const ok = stop > 0 ? stopFits(block, [at.x - block.x, at.y - block.y, at.z - block.z]) : canPlace({ ...block, ...at }, blocks, block.id);
+    return { ...at, ok };
   };
 
   return (
@@ -235,17 +251,125 @@ function MoveGizmo({ block, blocks }: { block: Block; blocks: Block[] }) {
         onObjectChange={() => setPreview(snapped())}
         onMouseUp={() => {
           const at = snapped();
-          if (at.ok) useLevel.getState().move(block.id, { x: at.x, y: at.y, z: at.z });
-          proxy.current?.position.set(...centre(at.ok ? { ...block, ...at } : block));
+          const S = useLevel.getState();
+          let moved = false;
+          if (at.ok) moved = stop > 0 ? S.moveStop(block.id, stop, [at.x - block.x, at.y - block.y, at.z - block.z]) : S.move(block.id, { x: at.x, y: at.y, z: at.z });
+          proxy.current?.position.set(...centre(moved ? { ...block, ...at } : home));
           setPreview(null);
           gizmoBusyUntil = performance.now() + 250;
         }}
       />
-      {preview && (preview.x !== block.x || preview.y !== block.y || preview.z !== block.z) && (
+      {preview && (preview.x !== home.x || preview.y !== home.y || preview.z !== home.z) && (
         <BlockMesh block={{ ...block, ...preview }} look={preview.ok ? "ghost" : "invalid"} />
       )}
-      <HeightGuide block={preview ? { ...block, ...preview } : block} />
+      <HeightGuide block={preview ? { ...block, ...preview } : home} />
     </>
+  );
+}
+
+const PATH_COLOUR = "#c2410c";
+
+/** A moving platform's path as a dotted line. When selected: numbered ghosts at each stop, and a preview. */
+function MotionPath({ block, selected, stopIndex }: { block: Block; selected: boolean; stopIndex: number }) {
+  const points = useMemo(() => stopCentres(block), [block]);
+  const line = useMemo(() => {
+    const pts = points.map((p) => new THREE.Vector3(...p));
+    if (block.move!.loop && pts.length > 2) pts.push(pts[0]!.clone());
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    return g;
+  }, [points, block.move]);
+  const lineRef = useRef<THREE.Line>(null);
+  useEffect(() => { lineRef.current?.computeLineDistances(); }, [line]);
+  const tool = useLevel((s) => s.tool);
+
+  return (
+    <group>
+      {/* @ts-expect-error -- three's <line> element, not the SVG one */}
+      <line ref={lineRef} geometry={line} raycast={() => null}>
+        <lineDashedMaterial color={PATH_COLOUR} dashSize={0.25} gapSize={0.18} transparent opacity={selected ? 0.95 : 0.55} depthTest={false} />
+      </line>
+      {points.map((p, i) => (
+        <StopBadge key={i} at={p} n={i + 1} active={selected && i === stopIndex} faint={!selected} />
+      ))}
+      {selected && points.slice(1).map((p, k) => {
+        const i = k + 1;
+        const off = block.move!.stops[k]!;
+        return (
+          <group
+            key={i}
+            onClick={(e) => {
+              if (tool !== "select" || e.delta > 5) return;
+              e.stopPropagation();
+              useLevel.getState().selectStop(i);
+            }}
+          >
+            <BlockMesh block={{ ...block, id: `${block.id}:stop${i}`, x: block.x + off[0], y: block.y + off[1], z: block.z + off[2] }} look="ghost" />
+          </group>
+        );
+      })}
+      {selected && <MotionPreview block={block} points={points} />}
+    </group>
+  );
+}
+
+/** A see-through copy riding along the path, so you can see how it will move. */
+function MotionPreview({ block, points }: { block: Block; points: ReturnType<typeof stopCentres> }) {
+  const g = useRef<THREE.Group>(null);
+  const t = useRef(0);
+  useFrame((_, dt) => {
+    t.current += Math.min(dt, 0.05);
+    const p = positionAt(points, block.move!, t.current);
+    g.current?.position.set(p[0] - points[0]![0], p[1] - points[0]![1], p[2] - points[0]![2]);
+  });
+  return (
+    <group ref={g} raycast={() => null}>
+      <group raycast={() => null}>
+        <PreviewMesh block={block} />
+      </group>
+    </group>
+  );
+}
+
+function PreviewMesh({ block }: { block: Block }) {
+  const [w, h, l] = footprint(block.piece, 0);
+  const [cx, cy, cz] = centre(block);
+  return (
+    <mesh position={[cx, cy, cz]} rotation-y={(block.rot * Math.PI) / 2} raycast={() => null}>
+      <boxGeometry args={[w * 0.96, h * 0.96, l * 0.96]} />
+      <meshBasicMaterial color="#fb923c" transparent opacity={0.28} depthWrite={false} />
+    </mesh>
+  );
+}
+
+const badgeTextures = new Map<string, THREE.CanvasTexture>();
+/** A round orange badge with a number on it (shared textures). */
+function badgeTexture(n: number, active: boolean) {
+  const key = `${n}:${active}`;
+  let tex = badgeTextures.get(key);
+  if (tex) return tex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = active ? "#2563eb" : "#ea580c";
+  ctx.beginPath(); ctx.arc(32, 32, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = "#ffffff"; ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 34px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(String(n), 32, 34);
+  tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  badgeTextures.set(key, tex);
+  return tex;
+}
+
+/** The stop number, floating above the stop. */
+function StopBadge({ at, n, active, faint }: { at: [number, number, number]; n: number; active: boolean; faint: boolean }) {
+  const map = useMemo(() => badgeTexture(n, active), [n, active]);
+  return (
+    <sprite position={[at[0], at[1] + 0.95, at[2]]} scale={faint ? 0.4 : 0.55} raycast={() => null} renderOrder={10}>
+      <spriteMaterial map={map} depthTest={false} transparent opacity={faint ? 0.6 : 1} />
+    </sprite>
   );
 }
 

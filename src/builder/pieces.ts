@@ -5,7 +5,7 @@
  */
 
 export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star";
-export type Behaviour = "solid" | "slope" | "start" | "goal" | "star";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving";
 
 export type Piece = {
   label: string;
@@ -38,9 +38,29 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   start: { colour: "#ffffff", edge: "#7c8a99", name: "White pad", meaning: "Where you start" },
   goal: { colour: "#ffffff", edge: "#1f2937", name: "Checkered flag", meaning: "The goal" },
   star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Star: collect it" },
+  moving: { colour: "#fb923c", edge: "#c2410c", name: "Orange", meaning: "Moving platform" },
 };
 
-export type Block = { id: string; piece: PieceId; x: number; y: number; z: number; rot: number };
+/** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */
+export type Motion = {
+  stops: [number, number, number][];
+  /** Blocks per second */
+  speed: number;
+  /** Seconds to pause at each stop */
+  wait: number;
+  /** "always" = moving from the start; "step" = waits until you stand on it */
+  trigger: "always" | "step";
+  /** true = after the last stop go straight back to the first; false = back and forth */
+  loop: boolean;
+};
+
+export type Block = { id: string; piece: PieceId; x: number; y: number; z: number; rot: number; move?: Motion };
+
+/** Can this piece be made into a moving platform? (Plain solid blocks only, for now.) */
+export const canMove = (piece: PieceId) => PIECES[piece].behaviour === "solid";
+
+/** Behaviour colour for a block (moving blocks are orange). */
+export const behaviourOf = (b: Pick<Block, "piece" | "move">): Behaviour => (b.move ? "moving" : PIECES[b.piece].behaviour);
 
 /** Footprint after rotation: [x size, height, z size]. Rotation is in quarter turns around the vertical. */
 export function footprint(piece: PieceId, rot: number): [number, number, number] {

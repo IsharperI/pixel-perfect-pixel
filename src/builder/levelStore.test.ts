@@ -49,6 +49,32 @@ describe("level editor store", () => {
     expect(S().bestTime).toBeNull();
   });
 
+  it("makes a block move, adds/moves/removes stops, and undoes", () => {
+    S().place({ piece: "cube", x: 0, y: 2, z: 0, rot: 0 });
+    const id = S().blocks[0]!.id;
+    S().addStop(id); // first "add stop" makes it move, with one stop
+    expect(S().blocks[0]!.move!.stops).toEqual([[3, 0, 0]]);
+    S().addStop(id);
+    expect(S().blocks[0]!.move!.stops).toEqual([[3, 0, 0], [6, 0, 0]]);
+    expect(S().stopIndex).toBe(2);
+    expect(S().moveStop(id, 2, [3, 4, 0])).toBe(true);
+    expect(S().moveStop(id, 2, [0, -5, 0])).toBe(false); // below the water
+    S().updateMotion(id, { loop: true, trigger: "step" });
+    expect(S().blocks[0]!.move).toMatchObject({ loop: true, trigger: "step", stops: [[3, 0, 0], [3, 4, 0]] });
+    S().removeStop(id, 1);
+    expect(S().blocks[0]!.move!.stops).toEqual([[3, 4, 0]]);
+    S().removeStop(id, 1); // last stop gone: it stops moving
+    expect(S().blocks[0]!.move).toBeUndefined();
+    S().undo();
+    expect(S().blocks[0]!.move!.stops).toEqual([[3, 4, 0]]);
+  });
+
+  it("only lets plain blocks move", () => {
+    S().place({ piece: "ramp", x: 0, y: 0, z: 0, rot: 0 });
+    S().setMotion(S().blocks[0]!.id, { stops: [[1, 0, 0]], speed: 3, wait: 0, trigger: "always", loop: false });
+    expect(S().blocks[0]!.move).toBeUndefined();
+  });
+
   it("keeps only one Start pad", () => {
     S().place({ piece: "start", x: 0, y: 0, z: 0, rot: 0 });
     S().place({ piece: "start", x: 5, y: 0, z: 5, rot: 0 });

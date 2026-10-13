@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { PIECES, blankLevel, canPlace, newId, starterLevel, type Block, type PieceId } from "./pieces";
+import { BUILD_LIMIT, HEIGHT_LIMIT, PIECES, blankLevel, bounds, canMove, canPlace, newId, starterLevel, type Block, type Motion, type PieceId } from "./pieces";
+import { defaultMotion, nextStopOffset, type V3 } from "./motion";
 import type { LevelData } from "./levelFile";
 import { DEFAULT_RULES, type Rules } from "./rules";
 
@@ -16,6 +17,8 @@ type LevelState = {
   piece: PieceId;
   rot: number; // rotation for the next block placed (quarter turns)
   selectedId: string | null;
+  /** Which stop of the selected moving platform the arrows move (0 = the platform itself) */
+  stopIndex: number;
   mode: Mode;
 
   // About the level itself
@@ -45,6 +48,17 @@ type LevelState = {
   setMode: (m: Mode) => void;
   replaceAll: (blocks: Block[]) => void;
 
+  // Moving platforms
+  /** Turn a block into a moving platform, or back into a still one (motion undefined) */
+  setMotion: (id: string, motion: Motion | undefined) => void;
+  /** Change some of a moving platform's settings */
+  updateMotion: (id: string, patch: Partial<Motion>) => void;
+  selectStop: (i: number) => void;
+  addStop: (id: string) => void;
+  removeStop: (id: string, i: number) => void;
+  /** Move stop `i` (1 or more) to a new offset from the platform */
+  moveStop: (id: string, i: number, offset: V3) => boolean;
+
   setName: (name: string) => void;
   /** Change some of the rules */
   setRules: (patch: Partial<Rules>) => void;
@@ -62,7 +76,7 @@ type LevelState = {
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
 export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
-  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot])]);
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null])]);
 }
 
 /** The current level as data to save. */
@@ -73,6 +87,15 @@ export function currentLevel(): LevelData {
 
 /** Are there changes since the level was last saved or opened? */
 export const useDirty = () => useLevel((s) => levelSig(s) !== s.baselineSig);
+
+/** Most stops one moving platform can have (besides where it starts). */
+export const MAX_STOPS = 8;
+
+/** Is a stop inside the build area (it may pass through other blocks: it's only a path)? */
+export function stopFits(b: Block, [dx, dy, dz]: V3): boolean {
+  const { min, max } = bounds({ ...b, x: b.x + dx, y: b.y + dy, z: b.z + dz });
+  return min[1] >= 0 && max[1] <= HEIGHT_LIMIT && min[0] >= -BUILD_LIMIT && max[0] <= BUILD_LIMIT && min[2] >= -BUILD_LIMIT && max[2] <= BUILD_LIMIT;
+}
 
 /** The example level asks for everything: collect the stars, then reach the flag. */
 const STARTER_RULES: Rules = { ...DEFAULT_RULES, stars: true, need: "all" };
@@ -93,6 +116,7 @@ export const useLevel = create<LevelState>((set, get) => {
     piece: "cube",
     rot: 0,
     selectedId: null,
+    stopIndex: 0,
     mode: "edit",
 
     levelId: newLevelId(),
@@ -120,7 +144,7 @@ export const useLevel = create<LevelState>((set, get) => {
       }
     },
 
-    select: (selectedId) => set({ selectedId }),
+    select: (selectedId) => set({ selectedId, stopIndex: 0 }),
 
     place: (b) => {
       const { blocks } = get();
@@ -188,6 +212,56 @@ export const useLevel = create<LevelState>((set, get) => {
     setMode: (mode) => set({ mode, selectedId: null }),
 
     replaceAll: (blocks) => commit(blocks),
+
+    setMotion: (id, motion) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      if (!b || (motion && !canMove(b.piece))) return;
+      commit(blocks.map((x) => {
+        if (x.id !== id) return x;
+        const { move: _, ...rest } = x;
+        return motion ? { ...rest, move: motion } : rest;
+      }));
+      set({ stopIndex: motion ? 1 : 0 });
+    },
+
+    updateMotion: (id, patch) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      if (!b?.move) return;
+      commit(blocks.map((x) => (x.id === id ? { ...x, move: { ...b.move!, ...patch } } : x)));
+    },
+
+    selectStop: (stopIndex) => set({ stopIndex }),
+
+    addStop: (id) => {
+      const b = get().blocks.find((x) => x.id === id);
+      if (!b) return;
+      if (!b.move) { get().setMotion(id, defaultMotion()); return; }
+      if (b.move.stops.length >= MAX_STOPS) return;
+      let off = nextStopOffset(b.move);
+      if (!stopFits(b, off)) off = [b.move.stops.at(-1)![0], b.move.stops.at(-1)![1] + 2, b.move.stops.at(-1)![2]];
+      get().updateMotion(id, { stops: [...b.move.stops, off] });
+      set({ stopIndex: b.move.stops.length + 1 });
+    },
+
+    removeStop: (id, i) => {
+      const b = get().blocks.find((x) => x.id === id);
+      if (!b?.move || i < 1) return;
+      const stops = b.move.stops.filter((_, k) => k !== i - 1);
+      if (!stops.length) get().setMotion(id, undefined);
+      else get().updateMotion(id, { stops });
+      set({ stopIndex: Math.min(i, stops.length) });
+    },
+
+    moveStop: (id, i, offset) => {
+      const b = get().blocks.find((x) => x.id === id);
+      if (!b?.move || i < 1 || !stopFits(b, offset)) return false;
+      const old = b.move.stops[i - 1];
+      if (old && old[0] === offset[0] && old[1] === offset[1] && old[2] === offset[2]) return true;
+      get().updateMotion(id, { stops: b.move.stops.map((s, k) => (k === i - 1 ? offset : s)) });
+      return true;
+    },
 
     setName: (name) => set({ name: name.slice(0, 40) }),
     setRules: (patch) => set((s) => {

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser, Hammer, MousePointer2, Pencil, Play, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2 } from "lucide-react";
+import { Eraser, Hammer, MousePointer2, MoveRight, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
 import { useLevel, type Tool } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
-import { BEHAVIOUR_COLOURS, PIECES, PIECE_ORDER, type Behaviour } from "./pieces";
+import { BEHAVIOUR_COLOURS, PIECES, PIECE_ORDER, canMove, type Behaviour, type Motion } from "./pieces";
+import { MAX_STOPS } from "./levelStore";
+import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { PieceIcon } from "./PieceIcon";
 
 const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
@@ -15,7 +17,7 @@ const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
 
 const HINTS: Record<Tool, string> = {
   build: "Click to add a piece, or drag to fill an area · R rotates · right-drag turns the view · middle-drag slides · scroll zooms",
-  select: "Click a block, then drag its arrows to move it (green = up, to make it float) · R rotates it · Delete removes it",
+  select: "Click a block, then drag its arrows to move it (green = up, to make it float) · Make it move for a moving platform · R rotates · Delete removes",
   erase: "Click a block to remove it, or drag to clear an area · Ctrl+Z brings it back · right-drag turns the view",
 };
 
@@ -94,6 +96,7 @@ export function BuilderUI() {
         </button>
       </div>
 
+      {tool === "select" && <BlockInspector panelOpen={panelOpen} />}
       {!panelOpen && <Legend />}
       {!panelOpen && <div className="builder-hint">{HINTS[tool]}</div>}
     </>
@@ -265,6 +268,75 @@ function WinScreen() {
   );
 }
 
+/** Pick one of a few labelled choices. */
+function Choice<T extends string | number | boolean>({ label, value, options, onChange }: { label: string; value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  return (
+    <div className="insp-row">
+      <span className="insp-label">{label}</span>
+      <div className="insp-seg" role="radiogroup" aria-label={label}>
+        {options.map(([v, text]) => (
+          <button key={String(v)} role="radio" aria-checked={value === v} data-on={value === v} onClick={(e) => { blur(e); onChange(v); }}>{text}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Settings for the selected block: make it move, its stops, speed, waiting, and how it starts and ends. */
+function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
+  const block = useLevel((s) => s.blocks.find((b) => b.id === s.selectedId) ?? null);
+  const stopIndex = useLevel((s) => s.stopIndex);
+  if (!block) return null;
+  const S = useLevel.getState();
+  const m = block.move;
+  const label = PIECES[block.piece].label;
+  const nearest = <T extends number>(v: number, opts: readonly T[]) => opts.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+
+  return (
+    <div className="insp" data-panel={panelOpen} aria-label="Selected piece">
+      <div className="insp-head">
+        <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : label}</span>
+        <button className="insp-x" onClick={(e) => { blur(e); S.select(null); }} aria-label="Deselect"><X size={14} aria-hidden /></button>
+      </div>
+      {!canMove(block.piece) ? (
+        <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
+      ) : !m ? (
+        <>
+          <button className="insp-make" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
+            <MoveRight size={16} aria-hidden /> Make it move
+          </button>
+          <p className="insp-note">It turns orange and travels between stops you place.</p>
+        </>
+      ) : (
+        <>
+          <div className="insp-row">
+            <span className="insp-label">Stops</span>
+            <div className="insp-stops">
+              {[0, ...m.stops.map((_, i) => i + 1)].map((i) => (
+                <button key={i} className="insp-stop" data-on={stopIndex === i} onClick={(e) => { blur(e); S.selectStop(i); }} title={i === 0 ? "Where it starts (moves the whole path)" : `Stop ${i + 1}: drag its arrows to move it`}>
+                  {i + 1}
+                </button>
+              ))}
+              {m.stops.length < MAX_STOPS && (
+                <button className="insp-stop" data-add onClick={(e) => { blur(e); S.addStop(block.id); }} title="Add another stop"><Plus size={13} aria-hidden /></button>
+              )}
+            </div>
+          </div>
+          <p className="insp-note">
+            {stopIndex === 0 ? "Stop 1 is where it starts. Moving it moves the whole path." : `Drag the arrows to move stop ${stopIndex + 1}.`}
+            {stopIndex > 0 && <button className="level-link insp-remove" onClick={(e) => { blur(e); S.removeStop(block.id, stopIndex); }}>Remove stop {stopIndex + 1}</button>}
+          </p>
+          <Choice<number> label="Speed" value={nearest(m.speed, Object.values(SPEEDS))} options={[[SPEEDS.slow, "Slow"], [SPEEDS.medium, "Medium"], [SPEEDS.fast, "Fast"]]} onChange={(speed) => S.updateMotion(block.id, { speed })} />
+          <Choice<number> label="Wait at stops" value={nearest(m.wait, Object.values(WAITS))} options={[[WAITS.none, "No"], [WAITS.short, "A bit"], [WAITS.long, "Longer"]]} onChange={(wait) => S.updateMotion(block.id, { wait })} />
+          <Choice<Motion["trigger"]> label="Starts" value={m.trigger} options={[["always", "Right away"], ["step", "When stepped on"]]} onChange={(trigger) => S.updateMotion(block.id, { trigger })} />
+          <Choice<boolean> label="At the end" value={m.loop} options={[[false, "Back and forth"], [true, "Loop"]]} onChange={(loop) => S.updateMotion(block.id, { loop })} />
+          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setMotion(block.id, undefined); }}>Stop it moving</button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Empty the level, after asking. */
 function ClearButton() {
   const [asking, setAsking] = useState(false);
@@ -314,7 +386,7 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
 
 /** What each colour means. */
 function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "start", "goal", "star"];
+  const shown: Behaviour[] = ["solid", "slope", "moving", "start", "goal", "star"];
   return (
     <div className="builder-legend" aria-label="Colour key">
       <p className="builder-heading">Colour key</p>

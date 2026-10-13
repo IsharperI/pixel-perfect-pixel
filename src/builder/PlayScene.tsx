@@ -1,6 +1,6 @@
-import { useId, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { CuboidCollider, Physics, RigidBody } from "@react-three/rapier";
+import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
@@ -13,6 +13,8 @@ import { Player } from "../game/Player";
 import { useInputListeners } from "../game/input";
 import { liveStats, useSettings, bool, num } from "../game/settings";
 import { playStar, playTick, playTimeUp, playWin } from "../game/sfx";
+import { carriers, type Carrier } from "../game/carriers";
+import { positionAt, stopCentres } from "./motion";
 
 /** Play the level: every block becomes solid, and your tuned character starts on the Start pad. */
 export function PlayScene() {
@@ -20,10 +22,14 @@ export function PlayScene() {
   useInputListeners();
   return (
     <Physics timeStep="vary">
-      {blocks.map((b) =>
+      {/* Moving platforms come first, so they've moved before the player works out where to go */}
+      {blocks.filter((b) => b.move).map((b) => <PlayMover key={b.id} block={b} />)}
+      {blocks.filter((b) => !b.move).map((b) =>
         b.piece === "star" ? <PlayStar key={b.id} block={b} /> : <PlayBlock key={b.id} block={b} />,
       )}
       <Player spawn={spawnPoint(blocks)} fallLimit={-1.2} />
+      {/* After the player has moved: put the moving platforms in their new places */}
+      <PlatformCommit />
       <Water />
       <GoalWatcher />
     </Physics>
@@ -47,6 +53,63 @@ function PlayBlock({ block }: { block: Block }) {
       {isGoal ? <PlayFlag block={block} fadeId={fadeId} /> : <BlockMesh block={block} fadeId={fadeId} local />}
     </RigidBody>
   );
+}
+
+/** A moving platform: follows its stops, and carries the player standing on it. */
+function PlayMover({ block }: { block: Block }) {
+  const fadeId = useId();
+  const body = useRef<RapierRigidBody>(null);
+  const points = useMemo(() => stopCentres(block), [block]);
+  const size = PIECES[block.piece].size; // unrotated: the body itself is rotated
+  const state = useRef({ t: 0, started: block.move!.trigger === "always", last: points[0]!, carrier: null as Carrier | null, handle: -1 });
+
+  // Stop carrying the player when this platform goes away
+  useEffect(() => () => { if (state.current.handle >= 0) carriers.delete(state.current.handle); }, []);
+
+  useFrame((_, rawDt) => {
+    const rb = body.current, s = state.current;
+    if (!rb) return;
+    // Register as something that carries the player, once its collider exists
+    // (colliders are added a moment after the body appears)
+    if (!s.carrier) {
+      if (rb.numColliders() === 0) return;
+      s.handle = rb.collider(0).handle;
+      s.carrier = {
+        dx: 0, dy: 0, dz: 0, stoodOn: false,
+        commit: () => { const q = state.current.last; rb.setTranslation({ x: q[0], y: q[1], z: q[2] }, true); },
+      };
+      carriers.set(s.handle, s.carrier);
+    }
+    if (!s.started && s.carrier.stoodOn) s.started = true; // "waits until you step on it"
+    if (s.started && !usePlay.getState().won) s.t += Math.min(rawDt, 0.05);
+    const p = positionAt(points, block.move!, s.t);
+    s.carrier.dx = p[0] - s.last[0];
+    s.carrier.dy = p[1] - s.last[1];
+    s.carrier.dz = p[2] - s.last[2];
+    s.carrier.stoodOn = false; // the player sets this again each frame they're on it
+    s.last = p;
+  });
+
+  return (
+    <RigidBody
+      ref={body}
+      type="kinematicPosition" // placed by hand each frame (see carriers.ts)
+      colliders={false}
+      position={points[0]}
+      rotation={[0, (block.rot * Math.PI) / 2, 0]}
+      userData={{ fadeId }}
+    >
+      {/* Exactly one collider, so the player always recognises what they're standing on */}
+      <CuboidCollider args={[size[0] / 2, size[1] / 2, size[2] / 2]} />
+      <BlockMesh block={block} fadeId={fadeId} local />
+    </RigidBody>
+  );
+}
+
+/** Runs after the player each frame: places every moving platform at its new position. */
+function PlatformCommit() {
+  useFrame(() => { for (const c of carriers.values()) c.commit(); });
+  return null;
 }
 
 /** The goal flag: locked (grey, with a padlock) until every star is collected, when the rules say so. */

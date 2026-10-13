@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
 import * as THREE from "three";
-import { BEHAVIOUR_COLOURS, PIECES, centre, type Block } from "./pieces";
+import { BEHAVIOUR_COLOURS, PIECES, behaviourOf, centre, type Block } from "./pieces";
 import { checkerTexture, rampGeometry, starGeometry } from "./geometry";
 import { registerFade } from "../game/fade";
 
@@ -31,7 +31,7 @@ export function BlockMesh({
 }) {
   const piece = PIECES[block.piece];
   const [w, h, l] = piece.size;
-  const colours = BEHAVIOUR_COLOURS[piece.behaviour];
+  const colours = BEHAVIOUR_COLOURS[behaviourOf(block)];
   const geometry = useMemo(() => (piece.ramp ? rampGeometry(w, h, l) : null), [piece.ramp, w, h, l]);
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   useEffect(() => (fadeId && mat.current ? registerFade(fadeId, mat.current) : undefined), [fadeId]);
@@ -47,7 +47,8 @@ export function BlockMesh({
       opacity={see ? 0.5 : 1}
       depthWrite={!see}
       emissive={selected ? "#3b82f6" : "#000000"}
-      emissiveIntensity={selected ? 0.35 : 0}
+      // (gentler on orange, which a strong blue glow would turn slope-pink)
+      emissiveIntensity={selected ? (block.move ? 0.1 : 0.35) : 0}
       {...(see ? {} : STENCIL_LEVEL)}
     />
   );
