@@ -34,7 +34,7 @@ export const STEPS: Step[] = [
     chapter: "Welcome",
     title: "Get moving",
     body: "This is a playground for how platformer characters feel. Every number behind the movement is a slider you can change while you play. First, just get comfortable.",
-    tryIt: "Run around with WASD. Drag the mouse to look around.",
+    tryIt: "Move around with WASD and tap Ctrl to switch between walking and running (on a touchscreen, push the stick all the way). Drag the mouse to look around.",
     done: (e) => e.distance >= 15,
   },
   {

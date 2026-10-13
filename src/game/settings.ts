@@ -24,6 +24,8 @@ export const SETTINGS: SettingDef[] = [
   { key: "acceleration", label: "Acceleration", category: "Movement", kind: "number", min: 1, max: 200, step: 1, unit: "u/s²", default: 40, description: "How quickly the character reaches top speed when you start moving." },
   { key: "deceleration", label: "Deceleration", category: "Movement", kind: "number", min: 1, max: 200, step: 1, unit: "u/s²", default: 50, description: "How quickly the character stops once you let go of the controls." },
   { key: "turnSpeed", label: "Turn Speed", category: "Movement", kind: "number", min: 1, max: 40, step: 0.5, default: 12, description: "How fast the character rotates to face the direction it's moving." },
+  { key: "runButton", label: "Run Button", category: "Movement", kind: "boolean", default: true, description: "Walk by default and reach Max Speed only while running. Keyboard: tap Ctrl to switch between walking and running. Touch and gamepad: push the stick all the way. Off = always full speed." },
+  { key: "walkSpeed", label: "Walk Speed", category: "Movement", kind: "number", min: 0.2, max: 1, step: 0.05, unit: "×", default: 0.5, description: "How fast walking is, as a fraction of Max Speed.", dependsOn: "runButton" },
 
   { key: "jumpHeight", label: "Jump Height", category: "Jump", kind: "number", min: 0.5, max: 10, step: 0.1, unit: "u", default: 3, description: "How high a full jump reaches, in world units." },
   { key: "timeToApex", label: "Time to Apex", category: "Jump", kind: "number", min: 0.1, max: 1.5, step: 0.01, unit: "s", default: 0.4, description: "Seconds to reach the top of a jump. Lower feels snappier, higher feels floatier." },

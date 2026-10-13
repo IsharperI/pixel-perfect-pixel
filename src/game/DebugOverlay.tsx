@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
-import { liveStats, useUI } from "./settings";
+import { liveStats, useSettings, useUI } from "./settings";
 import { useTutorial } from "./tutorial";
+import { input } from "./input";
 
 export function DebugOverlay() {
   const { showDebug, showTrail, showGhost, touchMode, toggle } = useUI();
+  const runButton = useSettings((v) => v.values["runButton"] === true);
   const [s, setS] = useState({ ...liveStats });
+  const [running, setRunning] = useState(input.running);
   useEffect(() => {
-    const id = setInterval(() => setS({ ...liveStats }), 80);
+    const id = setInterval(() => { setS({ ...liveStats }); setRunning(input.running); }, 80);
     return () => clearInterval(id);
   }, []);
+  const toggleRun = (e: React.MouseEvent) => {
+    input.running = !input.running;
+    setRunning(input.running);
+    (e.currentTarget as HTMLElement).blur(); // keep Space for jumping
+  };
 
   return (
     <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
@@ -17,6 +25,11 @@ export function DebugOverlay() {
         <button className="chip" data-on={showTrail} onClick={() => toggle("showTrail")}>Trail</button>
         <button className="chip" data-on={showGhost} disabled={!showTrail} onClick={() => toggle("showGhost")} title="Show your previous jump arc, faded, to compare against the current one">Ghost</button>
         <button className="chip" onClick={() => useTutorial.getState().reopen()} title="Open the guided tutorial">Tutorial</button>
+        {runButton && !touchMode && (
+          <button className="chip run-chip" data-on={running} onClick={toggleRun} title="Walking or running. Tap Ctrl (or click here) to switch.">
+            {running ? "Running" : "Walking"}
+          </button>
+        )}
       </div>
       {showDebug && (
         <div className="hud-card font-mono text-xs leading-relaxed">
@@ -30,8 +43,8 @@ export function DebugOverlay() {
       )}
       <div className="hud-card text-xs text-muted-foreground">
         {touchMode
-          ? <>Left thumb: move · <b>Jump</b> / <b>Crouch</b> buttons · swipe right side to look</>
-          : <><kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
+          ? <>Left thumb: move (push all the way to run) · <b>Jump</b> / <b>Crouch</b> buttons · swipe right side to look</>
+          : <><kbd>WASD</kbd> move · <kbd>Ctrl</kbd> walk/run · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
       </div>
     </div>
   );

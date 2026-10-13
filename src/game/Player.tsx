@@ -201,7 +201,18 @@ export function Player() {
       }
     } else {
       const floating = s.move === "float";
-      const top = floating ? maxSpeed * num(S, "floatMoveSpeed") : maxSpeed;
+      // Walk vs run. Keyboard: walk unless the run toggle is on. Sticks: speed follows how far
+      // the stick is pushed, up to walk speed, then the last stretch to a full push runs.
+      let runScale = 1;
+      if (bool(S, "runButton")) {
+        const walk = num(S, "walkSpeed");
+        const mag = Math.hypot(mv.x, mv.y);
+        if (mv.analog && mag > 0) {
+          const f = mag < 0.85 ? (mag / 0.85) * walk : walk + (1 - walk) * ((mag - 0.85) / 0.15);
+          runScale = f / mag; // dx/dz already carry the stick magnitude
+        } else if (!input.running) runScale = walk;
+      }
+      const top = (floating ? maxSpeed * num(S, "floatMoveSpeed") : maxSpeed) * runScale;
       const tx = crouching ? 0 : dx * top, tz = crouching ? 0 : dz * top;
       const airMul = s.grounded ? 1 : now < s.controlLockUntil ? 0 : floating ? 0.5 : num(S, "airControl");
       const rate = crouching ? num(S, "deceleration") * 0.2 // slow slide, leaves time to long jump

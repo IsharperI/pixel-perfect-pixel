@@ -10,7 +10,11 @@ export const input = {
   lastOrbitAt: -Infinity,
   // On-screen touch controls (see TouchControls.tsx). Stick is -1..1, +y = forward.
   touch: { x: 0, y: 0, jumpHeld: false, crouchHeld: false },
+  running: false, // run toggle (keyboard: tap Ctrl)
 };
+
+let ctrlDown = false;
+let ctrlCleanTap = false; // true while Ctrl is down and no other key has been pressed with it
 
 /** Let go of everything the touch controls are holding. */
 export function resetTouch() {
@@ -26,6 +30,7 @@ export function readMove() {
   const k = input.keys;
   let x = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
   let y = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
+  const keyboardMoving = x !== 0 || y !== 0;
   let jumpHeld = k.has("Space") || input.touch.jumpHeld;
   let crouchHeld = k.has("ShiftLeft") || k.has("ShiftRight") || input.touch.crouchHeld;
   x += input.touch.x;
@@ -52,7 +57,9 @@ export function readMove() {
   }
   const len = Math.hypot(x, y);
   if (len > 1) { x /= len; y /= len; }
-  return { x, y, jumpHeld, crouchHeld, camX, camY };
+  // Analog = a stick (touch or gamepad) is doing the moving, so how far it's pushed matters
+  const analog = !keyboardMoving && (x !== 0 || y !== 0);
+  return { x, y, jumpHeld, crouchHeld, camX, camY, analog };
 }
 let padJumpWas = false;
 let padCrouchWas = false;
@@ -67,6 +74,15 @@ export function useInputListeners() {
       if (isTyping()) return;
       // Using a keyboard: hide the on-screen touch controls
       if (useUI.getState().touchMode) { useUI.getState().setTouchMode(false); resetTouch(); }
+      // Run toggle: counts only as a clean tap of Ctrl on its own (toggled on release)
+      if (e.code === "ControlLeft" || e.code === "ControlRight") {
+        if (!e.repeat) { ctrlDown = true; ctrlCleanTap = true; }
+        return;
+      }
+      if (ctrlDown) ctrlCleanTap = false;
+      // Stop the browser shortcuts a page is allowed to block (bookmark, save, select all).
+      // Ctrl+W (close tab) can't be blocked by any web page.
+      if (e.ctrlKey && (e.code === "KeyD" || e.code === "KeyS" || e.code === "KeyA")) e.preventDefault();
       if (e.code === "KeyT" && !e.repeat) { useUI.getState().toggle("panelOpen"); return; }
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys
@@ -77,8 +93,15 @@ export function useInputListeners() {
         input.keys.add(e.code);
       }
     };
-    const up = (e: KeyboardEvent) => input.keys.delete(e.code);
-    const blur = () => { input.keys.clear(); resetTouch(); };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "ControlLeft" || e.code === "ControlRight") {
+        if (ctrlDown && ctrlCleanTap && !isTyping()) input.running = !input.running;
+        ctrlDown = false;
+        ctrlCleanTap = false;
+      }
+      input.keys.delete(e.code);
+    };
+    const blur = () => { input.keys.clear(); resetTouch(); ctrlDown = false; ctrlCleanTap = false; };
     // First touch anywhere: show the on-screen controls
     const touchStart = (e: PointerEvent) => {
       if (e.pointerType === "touch" && !useUI.getState().touchMode) useUI.getState().setTouchMode(true);

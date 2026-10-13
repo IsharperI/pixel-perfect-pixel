@@ -120,6 +120,8 @@
   .chip { font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.15rem 0.5rem; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); transition: all .15s; }
   .chip[data-on="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-foreground); }
   .chip:disabled { opacity: .4; cursor: not-allowed; }
+  .run-chip { min-width: 4.6rem; }
+  .run-chip[data-on="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
   .level-label { font-family: var(--font-mono); font-size: 13px; font-weight: 700; white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--card); color: var(--foreground); box-shadow: 0 2px 0 var(--border); pointer-events: none; user-select: none; }
   .settings-panel { position: absolute; top: 0.75rem; right: 0.75rem; bottom: 0.75rem; width: 340px; z-index: 20; display: flex; flex-direction: column; background: var(--card); color: var(--card-foreground); border: 1px solid var(--border); border-radius: calc(var(--radius) + 6px); box-shadow: var(--shadow-panel); transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
   .settings-panel[data-open="false"] { transform: translateX(calc(100% + 1rem)); opacity: 0; pointer-events: none; }
