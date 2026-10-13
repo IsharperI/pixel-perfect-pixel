@@ -75,7 +75,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     camPitch: 0,
     camTarget: spawnAt.clone(),
     lastPos: spawnAt.clone(), // player position last frame, for the leash camera
-    groundCollider: -1, // handle of what we stood on last frame (from the physics contacts), for moving platforms
+    riding: null as Carrier | null, // the moving platform we're standing on, if any
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
@@ -178,6 +178,45 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     if (!b || !c || !controller) return;
     step(b, c, controller, rawDt);
   });
+  /**
+   * Moving platforms, as simple boxes: land on and stand on their tops (and ride them), and get
+   * pushed out of their sides. Moves `next` in place; returns true if we're standing on one.
+   */
+  const touchPlatforms = (start: { y: number }, next: { x: number; y: number; z: number }, riding: Carrier | null) => {
+    const s = st.current;
+    let standing = false;
+    for (const pl of carriers.values()) {
+      const top = pl.y + pl.hy, bottom = pl.y - pl.hy;
+      const ex = next.x - pl.x, ez = next.z - pl.z;
+      const feet = next.y - (HALF + RADIUS), head = next.y + HALF + RADIUS;
+      // Standing on it: over its top (a little past the edge still counts, as on normal ground),
+      // and either already riding it or coming down onto it this frame
+      const overTop = Math.abs(ex) < pl.hx + RADIUS * 0.5 && Math.abs(ez) < pl.hz + RADIUS * 0.5;
+      const wasAbove = start.y - (HALF + RADIUS) >= top - pl.dy - 0.05;
+      if (overTop && s.vel.y <= 0.1 && feet <= top + 0.05 && (pl === riding || wasAbove)) {
+        next.y = top + HALF + RADIUS + 0.01;
+        s.riding = pl;
+        pl.stoodOn = true;
+        standing = true;
+        continue;
+      }
+      // Bumping into its side (or it moving into us): push out sideways, like a wall
+      if (Math.abs(ex) < pl.hx + RADIUS && Math.abs(ez) < pl.hz + RADIUS && feet < top - 0.02 && head > bottom) {
+        const px = pl.hx + RADIUS - Math.abs(ex), pz = pl.hz + RADIUS - Math.abs(ez);
+        if (px < pz) {
+          const sx = Math.sign(ex) || 1;
+          next.x = pl.x + sx * (pl.hx + RADIUS);
+          if (s.vel.x * sx < 0) s.vel.x = 0;
+        } else {
+          const sz = Math.sign(ez) || 1;
+          next.z = pl.z + sz * (pl.hz + RADIUS);
+          if (s.vel.z * sz < 0) s.vel.z = 0;
+        }
+      }
+    }
+    return standing;
+  };
+
   const step = (b: RapierRigidBody, c: RapierCollider, controller: NonNullable<typeof controllerRef.current>, rawDt: number) => {
     const dt = Math.min(rawDt, 0.05);
     const now = performance.now() / 1000;
@@ -187,19 +226,9 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
 
     // ---- the ground under us (for slopes): normal of whatever is just below the body
     let groundN: { x: number; y: number; z: number } | null = null;
-    let carry: Carrier | null = null;
-    const gh = s.grounded || s.vel.y <= 0.1
-      ? world.castRayAndGetNormal(new rapier.Ray(b.translation(), { x: 0, y: -1, z: 0 }), HALF + RADIUS + 0.6, true, undefined, undefined, c)
-      : null;
-    if (s.grounded && gh && gh.normal.y > 0.05) groundN = gh.normal;
-    // Standing on a moving platform? It carries us along. What we're standing on comes from last
-    // frame's contacts (they cover our whole base, so it works right up to a platform's edge), or
-    // failing that the ray straight down. The physics engine can briefly report "not grounded" when
-    // the floor slides under us, so any platform contact counts as long as we're not jumping up.
-    if (s.grounded || s.vel.y <= 0.1) {
-      carry = carriers.get(s.groundCollider) ?? null;
-      if (!carry && gh && gh.timeOfImpact < HALF + RADIUS + 0.25) carry = carriers.get(gh.collider.handle) ?? null;
-      if (carry) carry.stoodOn = true;
+    if (s.grounded) {
+      const gh = world.castRayAndGetNormal(new rapier.Ray(b.translation(), { x: 0, y: -1, z: 0 }), HALF + RADIUS + 0.6, true, undefined, undefined, c);
+      if (gh && gh.normal.y > 0.05) groundN = gh.normal;
     }
 
     // ---- camera orbit input
@@ -419,27 +448,18 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         tmp.v.y = (-(s.vel.x * groundN.x + s.vel.z * groundN.z) / groundN.y) * dt - 0.01;
       }
     }
-    // Riding a platform: its sideways movement goes through a collision check (so it can't push
-    // us into a wall); its up/down movement is added straight on, since we move with it
-    // (Worked out first, in its own check that ignores the platform itself, so only walls stop it)
-    let rideX = 0, rideZ = 0;
-    if (carry && (carry.dx || carry.dz)) {
-      const ride = carry;
-      controller.computeColliderMovement(c, { x: carry.dx, y: 0, z: carry.dz }, undefined, undefined, (other) => carriers.get(other.handle) !== ride);
-      const r = controller.computedMovement();
-      rideX = r.x; rideZ = r.z;
-    }
-    controller.computeColliderMovement(c, tmp.v);
+    // Riding a moving platform: its movement is added to ours (sideways through the collision
+    // check, so walls still stop us; up/down straight on). Moving platforms are left out of the
+    // physics engine's character collisions and handled by simple box rules below (see carriers.ts).
+    const carry = s.vel.y <= 0.1 ? s.riding : null;
+    if (carry) { tmp.v.x += carry.dx; tmp.v.z += carry.dz; }
+    controller.computeColliderMovement(c, tmp.v, undefined, undefined, carriers.size ? (other) => !carriers.has(other.handle) : undefined);
     const m = controller.computedMovement();
     const p = b.translation();
-    const next = { x: p.x + m.x + rideX, y: p.y + m.y + (carry ? carry.dy : 0), z: p.z + m.z + rideZ };
-    const groundedNow = controller.computedGrounded();
-    // Remember what we're standing on (the floor-like contact), for moving platforms next frame
-    s.groundCollider = -1;
-    for (let i = 0; i < controller.numComputedCollisions(); i++) {
-      const col = controller.computedCollision(i);
-      if (col?.collider && col.normal1.y > 0.5) { s.groundCollider = col.collider.handle; break; }
-    }
+    const next = { x: p.x + m.x, y: p.y + m.y + (carry ? carry.dy : 0), z: p.z + m.z };
+    let groundedNow = controller.computedGrounded();
+    s.riding = null;
+    if (carriers.size && touchPlatforms(p, next, carry)) groundedNow = true;
     // Remember touching a wall in mid-air (near-vertical surface) for wall jumps
     if (!groundedNow) {
       for (let i = 0; i < controller.numComputedCollisions(); i++) {
@@ -534,6 +554,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       s.camTarget.copy(spawnAt);
       s.lastPos.copy(spawnAt);
       s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0;
+      s.riding = null;
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
 

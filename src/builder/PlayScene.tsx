@@ -8,7 +8,7 @@ import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, hasWon, isPlayground, touchesFlag, touchesStar } from "./rules";
 import { saveBestTime, listSavedLevels } from "./levelFile";
-import { PIECES, centre, spawnPoint, type Block } from "./pieces";
+import { PIECES, centre, footprint, spawnPoint, type Block } from "./pieces";
 import { Player } from "../game/Player";
 import { useInputListeners } from "../game/input";
 import { liveStats, useSettings, bool, num } from "../game/settings";
@@ -74,9 +74,19 @@ function PlayMover({ block }: { block: Block }) {
     if (!s.carrier) {
       if (rb.numColliders() === 0) return;
       s.handle = rb.collider(0).handle;
+      const [fx, fh, fz] = footprint(block.piece, block.rot);
+      const at = points[0]!;
       s.carrier = {
-        dx: 0, dy: 0, dz: 0, stoodOn: false,
-        commit: () => { const q = state.current.last; rb.setTranslation({ x: q[0], y: q[1], z: q[2] }, true); },
+        handle: s.handle,
+        dx: 0, dy: 0, dz: 0,
+        x: at[0], y: at[1], z: at[2], hx: fx / 2, hy: fh / 2, hz: fz / 2,
+        stoodOn: false,
+        commit: () => {
+          const c = s.carrier!;
+          if (!c.dx && !c.dy && !c.dz) return; // not moving: leave it be
+          const q = state.current.last;
+          rb.setTranslation({ x: q[0], y: q[1], z: q[2] }, true);
+        },
       };
       carriers.set(s.handle, s.carrier);
     }
@@ -86,6 +96,7 @@ function PlayMover({ block }: { block: Block }) {
     s.carrier.dx = p[0] - s.last[0];
     s.carrier.dy = p[1] - s.last[1];
     s.carrier.dz = p[2] - s.last[2];
+    s.carrier.x = p[0]; s.carrier.y = p[1]; s.carrier.z = p[2];
     s.carrier.stoodOn = false; // the player sets this again each frame they're on it
     s.last = p;
   });
