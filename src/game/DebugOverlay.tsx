@@ -26,7 +26,7 @@ export function DebugOverlay() {
         <button className="chip" data-on={showGhost} disabled={!showTrail} onClick={() => toggle("showGhost")} title="Show your previous jump arc, faded, to compare against the current one">Ghost</button>
         <button className="chip" onClick={() => useTutorial.getState().reopen()} title="Open the guided tutorial">Tutorial</button>
         {runButton && !touchMode && (
-          <button className="chip run-chip" data-on={running} onClick={toggleRun} title="Walking or running. Tap Ctrl (or click here) to switch.">
+          <button className="chip run-chip" data-on={running} onClick={toggleRun} title="Walking or running. Tap Z (or click here) to switch.">
             {running ? "Running" : "Walking"}
           </button>
         )}
@@ -44,7 +44,7 @@ export function DebugOverlay() {
       <div className="hud-card text-xs text-muted-foreground">
         {touchMode
           ? <>Left thumb: move (push all the way to run) · <b>Jump</b> / <b>Crouch</b> buttons · swipe right side to look</>
-          : <><kbd>WASD</kbd> move · <kbd>Ctrl</kbd> walk/run · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
+          : <><kbd>WASD</kbd> move · <kbd>Z</kbd> walk/run · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
       </div>
     </div>
   );

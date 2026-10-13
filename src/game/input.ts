@@ -10,11 +10,9 @@ export const input = {
   lastOrbitAt: -Infinity,
   // On-screen touch controls (see TouchControls.tsx). Stick is -1..1, +y = forward.
   touch: { x: 0, y: 0, jumpHeld: false, crouchHeld: false },
-  running: false, // run toggle (keyboard: tap Ctrl)
+  running: false, // run toggle (keyboard: tap Z)
 };
 
-let ctrlDown = false;
-let ctrlCleanTap = false; // true while Ctrl is down and no other key has been pressed with it
 
 /** Let go of everything the touch controls are holding. */
 export function resetTouch() {
@@ -74,15 +72,11 @@ export function useInputListeners() {
       if (isTyping()) return;
       // Using a keyboard: hide the on-screen touch controls
       if (useUI.getState().touchMode) { useUI.getState().setTouchMode(false); resetTouch(); }
-      // Run toggle: counts only as a clean tap of Ctrl on its own (toggled on release)
-      if (e.code === "ControlLeft" || e.code === "ControlRight") {
-        if (!e.repeat) { ctrlDown = true; ctrlCleanTap = true; }
+      // Run toggle: tap Z (ignore browser shortcuts like Ctrl+Z)
+      if (e.code === "KeyZ" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        input.running = !input.running;
         return;
       }
-      if (ctrlDown) ctrlCleanTap = false;
-      // Stop the browser shortcuts a page is allowed to block (bookmark, save, select all).
-      // Ctrl+W (close tab) can't be blocked by any web page.
-      if (e.ctrlKey && (e.code === "KeyD" || e.code === "KeyS" || e.code === "KeyA")) e.preventDefault();
       if (e.code === "KeyT" && !e.repeat) { useUI.getState().toggle("panelOpen"); return; }
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys
@@ -93,15 +87,8 @@ export function useInputListeners() {
         input.keys.add(e.code);
       }
     };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "ControlLeft" || e.code === "ControlRight") {
-        if (ctrlDown && ctrlCleanTap && !isTyping()) input.running = !input.running;
-        ctrlDown = false;
-        ctrlCleanTap = false;
-      }
-      input.keys.delete(e.code);
-    };
-    const blur = () => { input.keys.clear(); resetTouch(); ctrlDown = false; ctrlCleanTap = false; };
+    const up = (e: KeyboardEvent) => input.keys.delete(e.code);
+    const blur = () => { input.keys.clear(); resetTouch(); };
     // First touch anywhere: show the on-screen controls
     const touchStart = (e: PointerEvent) => {
       if (e.pointerType === "touch" && !useUI.getState().touchMode) useUI.getState().setTouchMode(true);
