@@ -11,12 +11,19 @@ const RESPAWN = 3; // seconds before a popped target comes back
 
 // A rising staircase of targets to the right of the tall wall, ending at a high platform
 export const CHAIN_X = 32;
-export const TARGETS: Target[] = [
+export const TEST_LEVEL_TARGETS: Target[] = [
   [CHAIN_X, 3.2, 8],
   [CHAIN_X, 5.8, 2],
   [CHAIN_X, 8.4, -4],
   [CHAIN_X, 11, -10],
 ].map(([x, y, z], id) => ({ id, pos: new THREE.Vector3(x, y, z), activeAt: 0 }));
+
+/**
+ * The targets in the level currently showing. The player locks onto these.
+ * Whichever scene shows targets fills this in (and empties it when it goes away),
+ * so a built level with no targets never locks onto the test level's ones.
+ */
+export const TARGETS: Target[] = [];
 
 /** Which target the player is currently locked onto (-1 = none). Written by the player each frame. */
 export const homingState = { lockedId: -1 };

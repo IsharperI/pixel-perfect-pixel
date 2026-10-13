@@ -1,16 +1,21 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { TARGETS, homingState, isActive } from "./targets";
+import { TARGETS, homingState, isActive, type Target } from "./targets";
 
 /** Floating homing-attack targets plus the lock-on reticle. Visual only (no collision). */
-export function Targets() {
+export function Targets({ list }: { list: Target[] }) {
   const groups = useRef<(THREE.Group | null)[]>([]);
+  // Make these the live targets while this scene is showing
+  useEffect(() => {
+    TARGETS.splice(0, TARGETS.length, ...list);
+    return () => { TARGETS.splice(0, TARGETS.length); homingState.lockedId = -1; };
+  }, [list]);
   const reticle = useRef<THREE.Group>(null);
 
   useFrame(({ camera }) => {
     const now = performance.now() / 1000;
-    TARGETS.forEach((t, i) => {
+    list.forEach((t, i) => {
       const g = groups.current[i];
       if (!g) return;
       // Popped targets shrink away and grow back when they return
@@ -22,7 +27,7 @@ export function Targets() {
     });
     const r = reticle.current;
     if (r) {
-      const t = TARGETS[homingState.lockedId];
+      const t = list[homingState.lockedId];
       r.visible = !!t;
       if (t) {
         r.position.set(t.pos.x, t.pos.y + Math.sin(now * 2 + t.id) * 0.12, t.pos.z);
@@ -35,7 +40,7 @@ export function Targets() {
 
   return (
     <group>
-      {TARGETS.map((t, i) => (
+      {list.map((t, i) => (
         <group key={t.id} ref={(el) => { groups.current[i] = el; }} position={t.pos.toArray()}>
           <mesh castShadow>
             <torusGeometry args={[0.55, 0.11, 12, 32]} />

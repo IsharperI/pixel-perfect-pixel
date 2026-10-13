@@ -19,7 +19,9 @@ const DUST_MAX = 96;
 
 const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
-export function Player() {
+export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, number]; fallLimit?: number } = {}) {
+  // Where the character starts and respawns (the test level's spawn unless a level gives one)
+  const spawnAt = useMemo(() => (spawn ? new THREE.Vector3(...spawn) : SPAWN.clone()), [spawn?.[0], spawn?.[1], spawn?.[2]]);
   const body = useRef<RapierRigidBody>(null);
   const collider = useRef<RapierCollider>(null);
   const visual = useRef<THREE.Group>(null);
@@ -70,8 +72,8 @@ export function Player() {
     jumping: false,
     camYaw: 0,
     camPitch: 0,
-    camTarget: SPAWN.clone(),
-    lastPos: SPAWN.clone(), // player position last frame, for the leash camera
+    camTarget: spawnAt.clone(),
+    lastPos: spawnAt.clone(), // player position last frame, for the leash camera
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
@@ -498,11 +500,11 @@ export function Player() {
       }
     }
 
-    if (next.y < -25) {
-      b.setTranslation(SPAWN, true);
+    if (next.y < fallLimit) {
+      b.setTranslation(spawnAt, true);
       s.vel.set(0, 0, 0);
-      s.camTarget.copy(SPAWN);
-      s.lastPos.copy(SPAWN);
+      s.camTarget.copy(spawnAt);
+      s.lastPos.copy(spawnAt);
       s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0;
       trail.count = 0;
     } else b.setNextKinematicTranslation(next);
@@ -858,7 +860,7 @@ export function Player() {
 
   return (
     <>
-      <RigidBody ref={body} type="kinematicPosition" colliders={false} position={SPAWN.toArray()} enabledRotations={[false, false, false]}>
+      <RigidBody ref={body} type="kinematicPosition" colliders={false} position={spawnAt.toArray()} enabledRotations={[false, false, false]}>
         <CapsuleCollider ref={collider} args={[HALF, RADIUS]} />
         <group ref={visual} position={[0, -(HALF + RADIUS), 0]}>
           <group ref={leanGroup}>

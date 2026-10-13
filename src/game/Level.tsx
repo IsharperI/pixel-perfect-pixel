@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { RigidBody } from "@react-three/rapier";
 import { registerFade } from "./fade";
 import { Targets } from "./Targets";
-import { CHAIN_X } from "./targets";
+import { CHAIN_X, TEST_LEVEL_TARGETS } from "./targets";
 import { Grid, Html } from "@react-three/drei";
 
 type V3 = [number, number, number];
@@ -124,7 +124,7 @@ export function Level() {
       <Label pos={[-34.5, 6, -4]} text="RAMPS" />
 
       {/* Homing attack chain: floating targets rising to a high platform */}
-      <Targets />
+      <Targets list={TEST_LEVEL_TARGETS} />
       {/* Landing just past the last target: the bounce carries you onto it */}
       <Block pos={[CHAIN_X, 10.5, -14]} size={[4, 0.5, 4]} color={colorAt(4)} />
       <Label pos={[CHAIN_X + 2.5, 5, 9]} text="HOMING CHAIN" />
