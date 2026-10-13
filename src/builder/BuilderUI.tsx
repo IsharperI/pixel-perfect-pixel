@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Eraser, Hammer, MousePointer2, Pencil, Play, Redo2, RotateCcw, RotateCw, Settings2, Undo2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Eraser, Hammer, MousePointer2, Pencil, Play, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2 } from "lucide-react";
 import { useLevel, type Tool } from "./levelStore";
 import { usePlay } from "./playState";
-import { GOAL_INFO, formatTime, goalMissing } from "./rules";
+import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
 import { BEHAVIOUR_COLOURS, PIECES, PIECE_ORDER, type Behaviour } from "./pieces";
 import { PieceIcon } from "./PieceIcon";
 
@@ -81,6 +82,7 @@ export function BuilderUI() {
             <Redo2 size={16} aria-hidden />
           </button>
         </div>
+        <ClearButton />
       </aside>
 
       <div className="builder-top" data-panel={panelOpen}>
@@ -104,64 +106,88 @@ export function startPlay() {
   useLevel.getState().setMode("play");
 }
 
-/** The goal along the top while playing: stars collected, the timer, or what to do. */
+/** Along the top while playing: what to do, stars collected, and the clock. */
 function PlayHud() {
-  const goal = useLevel((s) => s.goal);
+  const rules = useLevel((s) => s.rules);
   const blocks = useLevel((s) => s.blocks);
   const bestTime = useLevel((s) => s.bestTime);
   const collected = usePlay((s) => s.collected.length);
   const won = usePlay((s) => s.won);
+  const hint = usePlay((s) => s.hint);
   const totalStars = useMemo(() => blocks.filter((b) => b.piece === "star").length, [blocks]);
-  const missing = goalMissing(goal, blocks);
-  const info = GOAL_INFO[goal];
+  const missing = goalMissing(rules, blocks);
+  const playground = isPlayground(rules);
+  const locked = flagLocked(rules, collected, totalStars);
 
   return (
     <div className="play-hud" data-won={won} aria-live="polite">
       <div className="play-hud-pill">
-        {goal === "time" ? (
-          <>
-            <span aria-hidden>{info.emoji}</span>
-            <Timer />
-            {bestTime !== null && <span className="play-hud-sub">Best {formatTime(bestTime)}</span>}
-          </>
-        ) : goal === "stars" ? (
-          <><span aria-hidden>⭐</span><strong className="tabular-nums">{collected} / {totalStars}</strong></>
-        ) : (
-          <><span aria-hidden>{info.emoji}</span><span>{info.title}</span></>
+        <span className="play-hud-goal">
+          <span aria-hidden>{locked ? "🔒" : goalEmoji(rules)}</span>
+          <span>{goalSentence(rules)}</span>
+        </span>
+        {totalStars > 0 && (
+          <span className="play-hud-part" data-done={collected >= totalStars}>
+            <span aria-hidden>⭐</span> <strong className="tabular-nums">{collected}/{totalStars}</strong>
+          </span>
         )}
-        {goal !== "stars" && totalStars > 0 && (
-          <span className="play-hud-stars"><span aria-hidden>⭐</span> <span className="tabular-nums">{collected}/{totalStars}</span></span>
+        {!playground && rules.clock !== "none" && (
+          <span className="play-hud-part">
+            <Clock rules={rules} />
+            {rules.clock === "trial" && bestTime !== null && <span className="play-hud-sub">Best {formatTime(bestTime)}</span>}
+          </span>
         )}
       </div>
       {missing && <p className="play-hud-missing">{missing}</p>}
+      {hint && <HintToast key={hint.at} text={hint.text} />}
     </div>
   );
 }
 
-/** A running clock for time trials (stops when you finish). */
-function Timer() {
+/** A message that shows for a couple of seconds. */
+function HintToast({ text }: { text: string }) {
+  const [shown, setShown] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setShown(false), 2200); return () => clearTimeout(t); }, []);
+  return shown ? <p className="play-hud-hint">{text}</p> : null;
+}
+
+/** The stopwatch (counting up) or countdown (red in the last ten seconds). Stops when the run ends. */
+function Clock({ rules }: { rules: Rules }) {
   const startedAt = usePlay((s) => s.startedAt);
   const finishTime = usePlay((s) => s.finishTime);
+  const lost = usePlay((s) => s.lost);
   const [now, setNow] = useState(() => performance.now() / 1000);
+  const stopped = finishTime !== null || lost;
   useEffect(() => {
-    if (finishTime !== null) return;
+    if (stopped) return;
     let id = 0;
     const tick = () => { setNow(performance.now() / 1000); id = requestAnimationFrame(tick); };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, [finishTime]);
-  return <strong className="tabular-nums">{formatTime(finishTime ?? Math.max(0, now - startedAt))}</strong>;
+  }, [stopped]);
+  const elapsed = finishTime ?? Math.max(0, now - startedAt);
+  if (rules.clock === "countdown") {
+    const left = lost ? 0 : rules.limit - elapsed;
+    return (
+      <>
+        <span aria-hidden>⏳</span>
+        <strong className="tabular-nums play-hud-countdown" data-urgent={left < 10}>{formatCountdown(left)}</strong>
+      </>
+    );
+  }
+  return <><span aria-hidden>⏱️</span><strong className="tabular-nums">{formatTime(elapsed)}</strong></>;
 }
 
 const CONFETTI_COLOURS = ["#fbbf24", "#f59ac0", "#22c55e", "#60a5fa", "#f97316", "#a78bfa"];
 
-/** The celebration when you finish the level. */
+/** The end of a run: a celebration when you win, or "Out of time!" when a countdown runs out. */
 function WinScreen() {
   const won = usePlay((s) => s.won);
+  const lost = usePlay((s) => s.lost);
   const finishTime = usePlay((s) => s.finishTime);
   const newBest = usePlay((s) => s.newBest);
   const collected = usePlay((s) => s.collected.length);
-  const goal = useLevel((s) => s.goal);
+  const rules = useLevel((s) => s.rules);
   const blocks = useLevel((s) => s.blocks);
   const bestTime = useLevel((s) => s.bestTime);
   const totalStars = blocks.filter((b) => b.piece === "star").length;
@@ -177,16 +203,43 @@ function WinScreen() {
     })),
     [won], // eslint-disable-line react-hooks/exhaustive-deps -- new confetti for each win
   );
-  if (!won) return null;
+  if (!won && !lost) return null;
 
-  const title = goal === "stars" ? "All the stars!" : goal === "time" ? (newBest ? "New best time!" : "Finished!") : "You did it!";
-  let detail = "";
-  if (goal === "time" && finishTime !== null) {
-    detail = newBest || bestTime === null || bestTime === finishTime
-      ? `${formatTime(finishTime)}${newBest ? "" : " · that's the time to beat"}`
-      : `${formatTime(finishTime)} · best ${formatTime(bestTime)}`;
-  } else if (goal === "stars") detail = `You collected all ${totalStars} star${totalStars === 1 ? "" : "s"}`;
-  else if (totalStars > 0) detail = `Stars: ${collected} of ${totalStars}`;
+  const actions = (
+    <div className="win-actions">
+      <button className="win-btn" data-primary onClick={(e) => { blur(e); startPlay(); }}>
+        <RotateCcw size={16} aria-hidden /> {lost ? "Try again" : "Play again"} <kbd>Enter</kbd>
+      </button>
+      <button className="win-btn" onClick={(e) => { blur(e); useLevel.getState().setMode("edit"); }}>
+        <Pencil size={16} aria-hidden /> Back to building <kbd>Esc</kbd>
+      </button>
+    </div>
+  );
+
+  if (lost) {
+    const left = totalStars - collected;
+    return (
+      <div className="win-overlay" data-lost role="dialog" aria-label="Out of time">
+        <div className="win-card">
+          <div className="win-emoji" aria-hidden>⏰</div>
+          <h2 className="win-title font-display">Out of time!</h2>
+          <p className="win-detail">{rules.stars && left > 0 ? `${left} star${left === 1 ? "" : "s"} still to find. So close!` : "So close! Have another go."}</p>
+          {actions}
+        </div>
+      </div>
+    );
+  }
+
+  const title = rules.clock === "trial" && newBest ? "New best time!" : "You did it!";
+  const parts: string[] = [];
+  if (finishTime !== null && rules.clock === "trial") {
+    parts.push(formatTime(finishTime));
+    if (!newBest && bestTime !== null && bestTime !== finishTime) parts.push(`best ${formatTime(bestTime)}`);
+    else if (!newBest) parts.push("that's the time to beat");
+  }
+  if (finishTime !== null && rules.clock === "countdown") parts.push(`with ${formatCountdown(rules.limit - finishTime)} to spare`);
+  if (totalStars > 0) parts.push(collected >= totalStars ? `all ${totalStars} star${totalStars === 1 ? "" : "s"}` : `stars: ${collected} of ${totalStars}`);
+  const detail = parts.join(" · ");
 
   return (
     <div className="win-overlay" role="dialog" aria-label={title}>
@@ -203,19 +256,59 @@ function WinScreen() {
         ))}
       </div>
       <div className="win-card">
-        <div className="win-emoji" aria-hidden>{goal === "stars" ? "⭐" : goal === "time" ? "⏱️" : "🏁"}</div>
+        <div className="win-emoji" aria-hidden>{rules.clock !== "none" ? "⏱️" : rules.stars && !rules.flag ? "⭐" : "🏁"}</div>
         <h2 className="win-title font-display">{title}</h2>
         {detail && <p className="win-detail">{detail}</p>}
-        <div className="win-actions">
-          <button className="win-btn" data-primary onClick={(e) => { blur(e); startPlay(); }}>
-            <RotateCcw size={16} aria-hidden /> Play again <kbd>Enter</kbd>
-          </button>
-          <button className="win-btn" onClick={(e) => { blur(e); useLevel.getState().setMode("edit"); }}>
-            <Pencil size={16} aria-hidden /> Back to building <kbd>Esc</kbd>
-          </button>
-        </div>
+        {actions}
       </div>
     </div>
+  );
+}
+
+/** Empty the level, after asking. */
+function ClearButton() {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <button className="builder-clear" onClick={(e) => { blur(e); setAsking(true); }} title="Remove everything and start again">
+        <Trash2 size={14} aria-hidden /> Clear level
+      </button>
+      {asking && (
+        <ConfirmDialog
+          title="Reset level?"
+          message="This removes every piece except the Start pad. (Undo can bring it back.)"
+          yes="Yes, clear it"
+          no="No, keep it"
+          onAnswer={(yes) => { setAsking(false); if (yes) useLevel.getState().clearLevel(); }}
+        />
+      )}
+    </>
+  );
+}
+
+/** A friendly yes/no question. Enter = yes, Esc = no. */
+export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: string; message: string; yes: string; no: string; onAnswer: (yes: boolean) => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopImmediatePropagation(); onAnswer(false); }
+      else if (e.key === "Enter") { e.stopImmediatePropagation(); e.preventDefault(); onAnswer(true); }
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [onAnswer]);
+  // Drawn on top of the whole page (not inside whatever panel opened it)
+  return createPortal(
+    <div className="confirm-overlay" role="alertdialog" aria-modal="true" aria-label={title} onClick={() => onAnswer(false)}>
+      <div className="confirm-card" onClick={(e) => e.stopPropagation()}>
+        <h2 className="confirm-title font-display">{title}</h2>
+        <p className="confirm-message">{message}</p>
+        <div className="confirm-actions">
+          <button className="win-btn" onClick={() => onAnswer(false)}>{no}</button>
+          <button className="win-btn" data-danger autoFocus onClick={() => onAnswer(true)}>{yes}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -31,6 +31,24 @@ describe("level editor store", () => {
     expect(S().blocks).toHaveLength(3);
   });
 
+  it("clears the level down to a Start pad, and can undo it", () => {
+    S().place({ piece: "cube", x: 3, y: 0, z: 0, rot: 0 });
+    S().place({ piece: "star", x: 3, y: 1, z: 0, rot: 0 });
+    S().clearLevel();
+    expect(S().blocks.map((b) => b.piece)).toEqual(["start"]);
+    S().undo();
+    expect(S().blocks).toHaveLength(2);
+  });
+
+  it("clears the best time when the challenge changes", () => {
+    S().setRules({ clock: "trial" });
+    S().setBestTime(12);
+    S().setRules({ limit: 30 }); // doesn't change the challenge for a time trial
+    expect(S().bestTime).toBe(12);
+    S().setRules({ stars: !S().rules.stars });
+    expect(S().bestTime).toBeNull();
+  });
+
   it("keeps only one Start pad", () => {
     S().place({ piece: "start", x: 0, y: 0, z: 0, rot: 0 });
     S().place({ piece: "start", x: 5, y: 0, z: 5, rot: 0 });

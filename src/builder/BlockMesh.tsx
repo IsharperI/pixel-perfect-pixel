@@ -17,7 +17,7 @@ type Look = "solid" | "ghost" | "invalid" | "erase";
  * camera fade it when it blocks the view).
  */
 export function BlockMesh({
-  block, look = "solid", fadeId, editor = false, selected = false, local = false,
+  block, look = "solid", fadeId, editor = false, selected = false, local = false, locked = false,
 }: {
   block: Omit<Block, "id"> & { id?: string };
   look?: Look;
@@ -26,6 +26,8 @@ export function BlockMesh({
   selected?: boolean;
   /** Draw at the parent's origin (inside a physics body that is already positioned and rotated) */
   local?: boolean;
+  /** Goal flag only: grey with a padlock (it can't be reached yet) */
+  locked?: boolean;
 }) {
   const piece = PIECES[block.piece];
   const [w, h, l] = piece.size;
@@ -81,7 +83,7 @@ export function BlockMesh({
           )}
         </>
       ) : piece.behaviour === "goal" ? (
-        <GoalFlag id={block.id} h={h} see={see} tint={look === "solid" ? null : colour} edge={edges} selected={selected} fadeRef={mat} />
+        <GoalFlag id={block.id} h={h} see={see} locked={locked} tint={look === "solid" ? (locked ? "#b6bcc6" : null) : colour} edge={edges} selected={selected} fadeRef={mat} />
       ) : piece.behaviour === "star" ? (
         <Star id={block.id} see={see} colour={colour} selected={selected} edgeColour={selected ? "#2563eb" : look === "invalid" ? "#c81e1e" : colours.edge} />
       ) : (
@@ -96,8 +98,8 @@ export function BlockMesh({
 }
 
 /** The goal: a checkered pad with a tall flag pole and a checkered flag. */
-function GoalFlag({ id, h, see, tint, edge, selected, fadeRef }: {
-  id: string | undefined; h: number; see: boolean; tint: string | null; edge: React.ReactNode; selected: boolean;
+function GoalFlag({ id, h, see, locked, tint, edge, selected, fadeRef }: {
+  id: string | undefined; h: number; see: boolean; locked: boolean; tint: string | null; edge: React.ReactNode; selected: boolean;
   fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>;
 }) {
   const map = useMemo(() => checkerTexture(), []);
@@ -122,6 +124,7 @@ function GoalFlag({ id, h, see, tint, edge, selected, fadeRef }: {
         <sphereGeometry args={[0.08, 12, 8]} />
         <meshStandardMaterial color={tint ?? "#fbbf24"} {...look} />
       </mesh>
+      {locked && <Padlock y={bottom + 1.05} />}
       <group position={[0, bottom + 1.9, 0]}>
         <mesh ref={flag} position={[0, 0, 0]} raycast={noRaycast}>
           <group position={[0.36, 0, 0]}>
@@ -161,6 +164,28 @@ function Star({ id, see, colour, selected, edgeColour }: { id: string | undefine
           depthWrite={!see}
         />
         <Edges color={edgeColour} threshold={25} raycast={noRaycast} />
+      </mesh>
+    </group>
+  );
+}
+
+/** A chunky gold padlock hanging on the flag pole. */
+function Padlock({ y }: { y: number }) {
+  const g = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => { if (g.current) g.current.rotation.y = Math.sin(clock.elapsedTime * 1.5) * 0.5; });
+  return (
+    <group ref={g} position={[0, y, 0]}>
+      <mesh position={[0, 0, 0.12]} raycast={noRaycast}>
+        <boxGeometry args={[0.36, 0.3, 0.14]} />
+        <meshStandardMaterial color="#f59e0b" metalness={0.5} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 0.17, 0.12]} raycast={noRaycast}>
+        <torusGeometry args={[0.11, 0.035, 8, 20, Math.PI]} />
+        <meshStandardMaterial color="#9ca3af" metalness={0.7} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, -0.02, 0.195]} raycast={noRaycast}>
+        <circleGeometry args={[0.045, 12]} />
+        <meshBasicMaterial color="#78350f" />
       </mesh>
     </group>
   );

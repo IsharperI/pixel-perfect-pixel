@@ -1,20 +1,19 @@
 /**
  * Level files and browser save slots. A level file is plain JSON, tagged so it
  * can't be confused with a character file:
- *   { format: "platformer-toolkit-3d/level", version: 1, name, goal, bestTime, blocks: [...] }
+ *   { format: "platformer-toolkit-3d/level", version: 2, name, rules, bestTime, blocks: [...] }
+ * Version 1 files (a single `goal` instead of `rules`) still open.
  */
 import { PIECES, canPlace, newId, type Block, type PieceId } from "./pieces";
+import { readRules, rulesFromOldGoal, type Rules } from "./rules";
 
 export const LEVEL_FORMAT = "platformer-toolkit-3d/level";
-export const LEVEL_VERSION = 1;
-
-/** What finishing the level means. */
-export type Goal = "flag" | "stars" | "time" | "none";
-export const GOALS: Goal[] = ["flag", "stars", "time", "none"];
+export const LEVEL_VERSION = 2;
 
 export type LevelData = {
   name: string;
-  goal: Goal;
+  /** What wins the level, and its clock */
+  rules: Rules;
   /** Fastest Time Trial finish in seconds, or null if never finished */
   bestTime: number | null;
   blocks: Block[];
@@ -28,7 +27,7 @@ export function toLevelFile(level: LevelData) {
     format: LEVEL_FORMAT,
     version: LEVEL_VERSION,
     name: level.name,
-    goal: level.goal,
+    rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
     blocks: level.blocks.map(({ piece, x, y, z, rot }) => ({ piece, x, y, z, rot })),
@@ -62,10 +61,10 @@ export function readLevelFile(data: unknown): LevelData | null {
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";
-  const goal = GOALS.includes(o["goal"] as Goal) ? (o["goal"] as Goal) : "flag";
+  const rules = "rules" in o ? readRules(o["rules"]) : rulesFromOldGoal(o["goal"]);
   const bt = o["bestTime"];
   const bestTime = typeof bt === "number" && Number.isFinite(bt) && bt > 0 ? bt : null;
-  return { name, goal, bestTime, blocks };
+  return { name, rules, bestTime, blocks };
 }
 
 /** A safe file name for downloading a level. */

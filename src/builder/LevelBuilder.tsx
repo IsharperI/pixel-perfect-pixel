@@ -57,7 +57,7 @@ function useBuilderKeys() {
       const S = useLevel.getState();
       if (S.mode === "play") {
         if (e.code === "Escape") S.setMode("edit");
-        else if (e.code === "Enter" && usePlay.getState().won) startPlay();
+        else if (e.code === "Enter" && (usePlay.getState().won || usePlay.getState().lost)) startPlay();
         return;
       }
       const mod = e.ctrlKey || e.metaKey;

@@ -16,6 +16,8 @@ named after the sound it replaces:
 | `hit.mp3`    | hitting a homing target              |
 | `star.mp3`   | collecting a star (Level Builder)    |
 | `win.mp3`    | finishing a level (Level Builder)    |
+| `tick.mp3`   | the last seconds of a countdown      |
+| `timeup.mp3` | a countdown running out              |
 
 - `.mp3`, `.ogg`, `.wav` and `.m4a` all work.
 - Files are picked up automatically; no code changes needed.

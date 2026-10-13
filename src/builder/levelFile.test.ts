@@ -1,15 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { LEVEL_FORMAT, deleteSavedLevel, levelFileName, listSavedLevels, readLevelFile, saveBestTime, saveLevelToBrowser, toLevelFile } from "./levelFile";
 import { starterLevel } from "./pieces";
+import { DEFAULT_RULES } from "./rules";
+
+const R = { ...DEFAULT_RULES, stars: true, need: "any" as const, clock: "countdown" as const, limit: 45 };
 
 describe("level files", () => {
   it("round-trips a level through its file", () => {
     const blocks = starterLevel();
-    const file = JSON.parse(JSON.stringify(toLevelFile({ name: "Sky castle", goal: "stars", bestTime: 12.5, blocks })));
+    const file = JSON.parse(JSON.stringify(toLevelFile({ name: "Sky castle", rules: R, bestTime: 12.5, blocks })));
     expect(file.format).toBe(LEVEL_FORMAT);
     const back = readLevelFile(file)!;
     expect(back.name).toBe("Sky castle");
-    expect(back.goal).toBe("stars");
+    expect(back.rules).toEqual(R);
     expect(back.bestTime).toBe(12.5);
     expect(back.blocks.map(({ id: _, ...b }) => b)).toEqual(blocks.map(({ id: _, ...b }) => b));
   });
@@ -22,7 +25,7 @@ describe("level files", () => {
 
   it("drops broken, unknown and overlapping pieces, and fixes bad settings", () => {
     const level = readLevelFile({
-      format: LEVEL_FORMAT, name: "  ", goal: "nonsense", bestTime: -3,
+      format: LEVEL_FORMAT, name: "  ", rules: { flag: "yes", stars: true, need: "?", clock: "countdown", limit: 99999 }, bestTime: -3,
       blocks: [
         { piece: "cube", x: 0, y: 0, z: 0, rot: 0 },
         { piece: "cube", x: 0, y: 0, z: 0, rot: 0 }, // overlaps
@@ -33,9 +36,17 @@ describe("level files", () => {
       ],
     })!;
     expect(level.name).toBe("My level");
-    expect(level.goal).toBe("flag");
+    expect(level.rules).toEqual({ flag: true, stars: true, need: "all", clock: "countdown", limit: 600 });
     expect(level.bestTime).toBeNull();
     expect(level.blocks.map((b) => [b.piece, b.x, b.rot])).toEqual([["cube", 0, 0], ["ramp", 4, 1], ["goal", 6, 0]]);
+  });
+
+  it("opens older files that had a single goal", () => {
+    const old = (goal: string) => readLevelFile({ format: LEVEL_FORMAT, version: 1, goal, blocks: [] })!.rules;
+    expect(old("flag")).toMatchObject({ flag: true, stars: false, clock: "none" });
+    expect(old("stars")).toMatchObject({ flag: false, stars: true, clock: "none" });
+    expect(old("time")).toMatchObject({ flag: true, stars: false, clock: "trial" });
+    expect(old("none")).toMatchObject({ flag: false, stars: false });
   });
 
   it("makes safe file names", () => {
@@ -49,9 +60,9 @@ describe("browser save slots", () => {
 
   it("saves, overwrites, updates best time, and deletes", () => {
     const blocks = starterLevel();
-    expect(saveLevelToBrowser("a", { name: "One", goal: "flag", bestTime: null, blocks })).toBe(true);
-    expect(saveLevelToBrowser("b", { name: "Two", goal: "time", bestTime: null, blocks })).toBe(true);
-    expect(saveLevelToBrowser("a", { name: "One again", goal: "flag", bestTime: null, blocks })).toBe(true);
+    expect(saveLevelToBrowser("a", { name: "One", rules: DEFAULT_RULES, bestTime: null, blocks })).toBe(true);
+    expect(saveLevelToBrowser("b", { name: "Two", rules: DEFAULT_RULES, bestTime: null, blocks })).toBe(true);
+    expect(saveLevelToBrowser("a", { name: "One again", rules: DEFAULT_RULES, bestTime: null, blocks })).toBe(true);
     let list = listSavedLevels();
     expect(list.map((s) => s.name).sort()).toEqual(["One again", "Two"]);
     saveBestTime("b", 9.8);

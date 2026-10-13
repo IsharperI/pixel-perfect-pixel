@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { PIECES, blankLevel, canPlace, newId, starterLevel, type Block, type PieceId } from "./pieces";
-import type { Goal, LevelData } from "./levelFile";
+import type { LevelData } from "./levelFile";
+import { DEFAULT_RULES, type Rules } from "./rules";
 
 export type Tool = "build" | "select" | "erase";
 export type Mode = "edit" | "play";
@@ -21,7 +22,7 @@ type LevelState = {
   /** Which browser save slot this level belongs to */
   levelId: string;
   name: string;
-  goal: Goal;
+  rules: Rules;
   bestTime: number | null;
   /** Fingerprint of the level as last saved/opened, to spot unsaved changes */
   baselineSig: string;
@@ -45,7 +46,10 @@ type LevelState = {
   replaceAll: (blocks: Block[]) => void;
 
   setName: (name: string) => void;
-  setGoal: (goal: Goal) => void;
+  /** Change some of the rules */
+  setRules: (patch: Partial<Rules>) => void;
+  /** Empty the level (just a Start pad left); can be undone */
+  clearLevel: () => void;
   setBestTime: (t: number | null) => void;
   setPanelOpen: (open: boolean) => void;
   /** Open a level (from a save slot or a file). `id` is its save slot, or a new one. */
@@ -57,18 +61,21 @@ type LevelState = {
 };
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
-export function levelSig(s: Pick<LevelState, "name" | "goal" | "blocks">): string {
-  return JSON.stringify([s.name, s.goal, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot])]);
+export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot])]);
 }
 
 /** The current level as data to save. */
 export function currentLevel(): LevelData {
-  const { name, goal, bestTime, blocks } = useLevel.getState();
-  return { name, goal, bestTime, blocks };
+  const { name, rules, bestTime, blocks } = useLevel.getState();
+  return { name, rules, bestTime, blocks };
 }
 
 /** Are there changes since the level was last saved or opened? */
 export const useDirty = () => useLevel((s) => levelSig(s) !== s.baselineSig);
+
+/** The example level asks for everything: collect the stars, then reach the flag. */
+const STARTER_RULES: Rules = { ...DEFAULT_RULES, stars: true, need: "all" };
 
 const newLevelId = () => `lvl${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -90,9 +97,9 @@ export const useLevel = create<LevelState>((set, get) => {
 
     levelId: newLevelId(),
     name: "My first level",
-    goal: "flag",
+    rules: STARTER_RULES,
     bestTime: null,
-    baselineSig: levelSig({ name: "My first level", goal: "flag", blocks: starter }),
+    baselineSig: levelSig({ name: "My first level", rules: STARTER_RULES, blocks: starter }),
     panelOpen: false,
 
     setTool: (tool) => set({ tool, selectedId: tool === "select" ? get().selectedId : null }),
@@ -183,7 +190,16 @@ export const useLevel = create<LevelState>((set, get) => {
     replaceAll: (blocks) => commit(blocks),
 
     setName: (name) => set({ name: name.slice(0, 40) }),
-    setGoal: (goal) => set({ goal }),
+    setRules: (patch) => set((s) => {
+      const rules = { ...s.rules, ...patch };
+      // A best time only counts for the same challenge, so changing what wins (or the clock) clears it
+      const same = rules.flag === s.rules.flag && rules.stars === s.rules.stars && rules.need === s.rules.need && rules.clock === s.rules.clock;
+      return { rules, bestTime: same ? s.bestTime : null };
+    }),
+    clearLevel: () => {
+      commit([{ id: newId(), piece: "start", x: 0, y: 0, z: 0, rot: 0 }]);
+      set({ selectedId: null });
+    },
     setBestTime: (bestTime) => set({ bestTime }),
     setPanelOpen: (panelOpen) => set({ panelOpen }),
 
@@ -196,7 +212,7 @@ export const useLevel = create<LevelState>((set, get) => {
       });
     },
 
-    newLevel: () => get().loadLevel({ name: "New level", goal: "flag", bestTime: null, blocks: blankLevel() }),
+    newLevel: () => get().loadLevel({ name: "New level", rules: DEFAULT_RULES, bestTime: null, blocks: blankLevel() }),
 
     markSaved: () => set((s) => ({ baselineSig: levelSig(s) })),
   };

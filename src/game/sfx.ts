@@ -130,7 +130,7 @@ export function playExhale(volume: number) {
 // Any audio file dropped into src/game/sounds/ named after a sound (jump, land,
 // skid, flap, exhale) replaces the generated version. Found automatically at
 // build time, so there's nothing to register. See src/game/sounds/README.md.
-export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win";
+export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win" | "timeup" | "tick";
 const FILES = import.meta.glob("./sounds/*.{mp3,ogg,wav,m4a}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 const CUSTOM_URLS: Partial<Record<SoundName, string>> = {};
 for (const [path, url] of Object.entries(FILES)) {
@@ -324,4 +324,33 @@ export function playWin(volume: number) {
   chime(a, 1047, 0.44, 0.7, 0.14 * volume, "triangle");
   chime(a, 1319, 0.44, 0.7, 0.1 * volume, "triangle");
   chime(a, 1568, 0.44, 0.7, 0.08 * volume, "triangle");
+}
+
+/** A short woodblock tick for the last seconds of a countdown. */
+export function playTick(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("tick", 0.5 * volume)) return;
+  chime(a, 1760, 0, 0.06, 0.12 * volume, "square");
+}
+
+/** A gentle "wah-wah" for running out of time. */
+export function playTimeUp(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("timeup", 0.6 * volume)) return;
+  const t = a.currentTime;
+  [[392, 0], [311, 0.28]].forEach(([f, at]) => {
+    const o = a.createOscillator();
+    const g = a.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(f!, t + at!);
+    o.frequency.linearRampToValueAtTime(f! * 0.94, t + at! + 0.35);
+    g.gain.setValueAtTime(0.0001, t + at!);
+    g.gain.exponentialRampToValueAtTime(0.18 * volume, t + at! + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + at! + 0.4);
+    o.connect(g).connect(a.destination);
+    o.start(t + at!);
+    o.stop(t + at! + 0.45);
+  });
 }

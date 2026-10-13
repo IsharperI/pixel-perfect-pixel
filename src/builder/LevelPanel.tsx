@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { create } from "zustand";
-import { Check, Download, FilePlus2, FolderOpen, Save, Trash2, Upload, X, AlertTriangle, Info } from "lucide-react";
+import { Check, Minus, Plus, Download, FilePlus2, FolderOpen, Save, Trash2, Upload, X, AlertTriangle, Info } from "lucide-react";
 import { currentLevel, levelSig, useDirty, useLevel } from "./levelStore";
-import { GOALS, deleteSavedLevel, levelFileName, listSavedLevels, readLevelFile, saveLevelToBrowser, toLevelFile, type SavedLevel } from "./levelFile";
-import { GOAL_INFO, formatTime, levelChecklist } from "./rules";
+import { deleteSavedLevel, levelFileName, listSavedLevels, readLevelFile, saveLevelToBrowser, toLevelFile, type SavedLevel } from "./levelFile";
+import { CLOCK_INFO, DEFAULT_RULES, LIMIT_MAX, LIMIT_MIN, formatLimit, formatTime, goalEmoji, isPlayground, levelChecklist, type Clock } from "./rules";
 
 /** The levels saved in this browser (re-read after every save/delete). */
 export const useSlots = create<{ list: SavedLevel[]; refresh: () => void }>((set) => ({
@@ -36,7 +36,7 @@ const when = (iso: string) => {
 export function LevelPanel() {
   const open = useLevel((s) => s.panelOpen);
   const setOpen = useLevel((s) => s.setPanelOpen);
-  const { name, goal, blocks, bestTime, levelId, setName, setGoal, setBestTime } = useLevel();
+  const { name, rules, blocks, bestTime, levelId, setName, setRules, setBestTime } = useLevel();
   const dirty = useDirty();
   const slots = useSlots((s) => s.list);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -49,7 +49,12 @@ export function LevelPanel() {
     timer.current = setTimeout(() => setNote(null), 2400);
   };
   const isSaved = slots.some((s) => s.id === levelId);
-  const checklist = levelChecklist(goal, blocks);
+  const checklist = levelChecklist(rules, blocks);
+  // Countdown steps: 5 seconds at a time up to a minute, then 15
+  const stepLimit = (dir: 1 | -1) => {
+    const l = rules.limit, step = dir > 0 ? (l >= 60 ? 15 : 5) : (l > 60 ? 15 : 5);
+    setRules({ limit: Math.min(LIMIT_MAX, Math.max(LIMIT_MIN, l + dir * step)) });
+  };
 
   const save = () => {
     const ok = saveCurrentLevel();
@@ -115,18 +120,50 @@ export function LevelPanel() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <p className="level-heading">Goal</p>
-        <div className="goal-grid" role="radiogroup" aria-label="Goal">
-          {GOALS.map((g) => (
-            <button key={g} className="goal-card" role="radio" aria-checked={goal === g} data-on={goal === g} onClick={() => setGoal(g)}>
-              <span className="goal-emoji" aria-hidden>{GOAL_INFO[g].emoji}</span>
-              <span className="goal-title">{GOAL_INFO[g].title}</span>
-              <span className="goal-blurb">{GOAL_INFO[g].blurb}</span>
+        <p className="level-heading">What wins the level?</p>
+        <div className="goal-grid">
+          {([["flag", "🏁", "Reach the flag", "Touch the checkered flag."], ["stars", "⭐", "Collect the stars", "Grab every star."]] as const).map(([key, emoji, title, blurb]) => (
+            <button key={key} className="goal-card" role="checkbox" aria-checked={rules[key]} data-on={rules[key]} onClick={() => setRules({ [key]: !rules[key] })}>
+              <span className="goal-tick" aria-hidden>{rules[key] && <Check size={13} strokeWidth={3} />}</span>
+              <span className="goal-emoji" aria-hidden>{emoji}</span>
+              <span className="goal-title">{title}</span>
+              <span className="goal-blurb">{blurb}</span>
             </button>
           ))}
         </div>
+        {rules.flag && rules.stars && (
+          <div className="goal-need" role="radiogroup" aria-label="With both ticked">
+            <button role="radio" aria-checked={rules.need === "all"} data-on={rules.need === "all"} onClick={() => setRules({ need: "all" })}>
+              <strong>Do all of them</strong><span>Flag is locked 🔒 until every star is found</span>
+            </button>
+            <button role="radio" aria-checked={rules.need === "any"} data-on={rules.need === "any"} onClick={() => setRules({ need: "any" })}>
+              <strong>Do any one</strong><span>Reach the flag <em>or</em> collect every star</span>
+            </button>
+          </div>
+        )}
+        {isPlayground(rules) && <p className="goal-note">🛝 Nothing ticked: it's just a playground to run around in.</p>}
 
-        {goal === "time" && (
+        <p className="level-heading">Clock</p>
+        <div className="clock-row" role="radiogroup" aria-label="Clock">
+          {(["none", "trial", "countdown"] as Clock[]).map((c) => (
+            <button key={c} className="clock-card" role="radio" aria-checked={rules.clock === c} data-on={rules.clock === c} onClick={() => setRules({ clock: c })} title={CLOCK_INFO[c].blurb}>
+              <span className="goal-emoji" aria-hidden>{CLOCK_INFO[c].emoji}</span>
+              <span className="goal-title">{CLOCK_INFO[c].title}</span>
+            </button>
+          ))}
+        </div>
+        <p className="goal-note">{CLOCK_INFO[rules.clock].blurb}</p>
+        {rules.clock === "countdown" && (
+          <div className="level-best">
+            <span>Time limit</span>
+            <div className="limit-stepper">
+              <button onClick={() => stepLimit(-1)} disabled={rules.limit <= LIMIT_MIN} aria-label="Less time"><Minus size={14} aria-hidden /></button>
+              <strong>{formatLimit(rules.limit)}</strong>
+              <button onClick={() => stepLimit(1)} disabled={rules.limit >= LIMIT_MAX} aria-label="More time"><Plus size={14} aria-hidden /></button>
+            </div>
+          </div>
+        )}
+        {rules.clock === "trial" && (
           <div className="level-best">
             <span>Best time</span>
             <strong>{bestTime === null ? "none yet" : formatTime(bestTime)}</strong>
@@ -161,7 +198,7 @@ export function LevelPanel() {
               <li key={s.id} data-current={s.id === levelId}>
                 <button className="level-slot-open" onClick={() => openSlot(s)} title={`Open "${s.name}"`}>
                   <span className="level-slot-name">{s.name}{s.id === levelId && <em> · open</em>}</span>
-                  <span className="level-slot-meta">{GOAL_INFO[readLevelFile(s.file)?.goal ?? "flag"].emoji} {when(s.savedAt)}</span>
+                  <span className="level-slot-meta">{goalEmoji(readLevelFile(s.file)?.rules ?? DEFAULT_RULES)} {when(s.savedAt)}</span>
                 </button>
                 <button className="level-slot-icon" onClick={() => openSlot(s)} aria-label={`Open ${s.name}`} title="Open">
                   <FolderOpen size={15} aria-hidden />
