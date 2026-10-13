@@ -15,6 +15,7 @@ import { liveStats, useSettings, bool, num } from "../game/settings";
 import { playStar, playTick, playTimeUp, playWin } from "../game/sfx";
 import { carriers, type Carrier } from "../game/carriers";
 import { positionAt, stopCentres } from "./motion";
+import { LEVEL_RATE, TIP_RATE, approach, tiltTarget, toLocal } from "./tilt";
 
 /** Play the level: every block becomes solid, and your tuned character starts on the Start pad. */
 export function PlayScene() {
@@ -24,7 +25,8 @@ export function PlayScene() {
     <Physics timeStep="vary">
       {/* Moving platforms come first, so they've moved before the player works out where to go */}
       {blocks.filter((b) => b.move).map((b) => <PlayMover key={b.id} block={b} />)}
-      {blocks.filter((b) => !b.move).map((b) =>
+      {blocks.filter((b) => b.tilt).map((b) => <PlayTilter key={b.id} block={b} />)}
+      {blocks.filter((b) => !b.move && !b.tilt).map((b) =>
         b.piece === "star" ? <PlayStar key={b.id} block={b} /> : <PlayBlock key={b.id} block={b} />,
       )}
       <Player spawn={spawnPoint(blocks)} fallLimit={-1.2} />
@@ -80,6 +82,7 @@ function PlayMover({ block }: { block: Block }) {
         handle: s.handle,
         dx: 0, dy: 0, dz: 0,
         x: at[0], y: at[1], z: at[2], hx: fx / 2, hy: fh / 2, hz: fz / 2,
+        nx: 0, ny: 1, nz: 0,
         stoodOn: false,
         commit: () => {
           const c = s.carrier!;
@@ -111,6 +114,58 @@ function PlayMover({ block }: { block: Block }) {
       userData={{ fadeId }}
     >
       {/* Exactly one collider, so the player always recognises what they're standing on */}
+      <CuboidCollider args={[size[0] / 2, size[1] / 2, size[2] / 2]} />
+      <BlockMesh block={block} fadeId={fadeId} local />
+    </RigidBody>
+  );
+}
+
+/** A seesaw platform: tips toward where the player stands on it, and levels out when they step off. */
+function PlayTilter({ block }: { block: Block }) {
+  const fadeId = useId();
+  const body = useRef<RapierRigidBody>(null);
+  const at = useMemo(() => centre(block), [block]);
+  const size = PIECES[block.piece].size;
+  const state = useRef({ ax: 0, az: 0, carrier: null as Carrier | null, handle: -1 });
+  const tmp = useMemo(() => ({ q: new THREE.Quaternion(), e: new THREE.Euler(), n: new THREE.Vector3() }), []);
+
+  useEffect(() => () => { if (state.current.handle >= 0) carriers.delete(state.current.handle); }, []);
+
+  useFrame((_, rawDt) => {
+    const rb = body.current, s = state.current;
+    if (!rb) return;
+    if (!s.carrier) {
+      if (rb.numColliders() === 0) return;
+      s.handle = rb.collider(0).handle;
+      const [fx, fh, fz] = footprint(block.piece, block.rot);
+      s.carrier = {
+        handle: s.handle, dx: 0, dy: 0, dz: 0,
+        x: at[0], y: at[1], z: at[2], hx: fx / 2, hy: fh / 2, hz: fz / 2,
+        nx: 0, ny: 1, nz: 0, stoodOn: false,
+        commit: () => { rb.setRotation(tmp.q, true); },
+      };
+      carriers.set(s.handle, s.carrier);
+    }
+    const c = s.carrier;
+    const dt = Math.min(rawDt, 0.05);
+    // Where is the player on it (in the platform's own frame)? Tip toward them; level out when they leave
+    let tx = 0, tz = 0, rate = LEVEL_RATE;
+    if (c.stoodOn) {
+      const [lx, lz] = toLocal(liveStats.x - at[0], liveStats.z - at[2], block.rot);
+      [tx, tz] = tiltTarget(block.piece, lx, lz);
+      rate = TIP_RATE;
+    }
+    s.ax = approach(s.ax, tx, rate, dt);
+    s.az = approach(s.az, tz, rate, dt);
+    // Turn = face its building direction, then tip about its own x and z
+    tmp.q.setFromEuler(tmp.e.set(s.ax, (block.rot * Math.PI) / 2, s.az, "YXZ"));
+    tmp.n.set(0, 1, 0).applyQuaternion(tmp.q);
+    c.nx = tmp.n.x; c.ny = tmp.n.y; c.nz = tmp.n.z;
+    c.stoodOn = false; // the player sets this again each frame they're on it
+  });
+
+  return (
+    <RigidBody ref={body} type="kinematicPosition" colliders={false} position={at} rotation={[0, (block.rot * Math.PI) / 2, 0]} userData={{ fadeId }}>
       <CuboidCollider args={[size[0] / 2, size[1] / 2, size[2] / 2]} />
       <BlockMesh block={block} fadeId={fadeId} local />
     </RigidBody>

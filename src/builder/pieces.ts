@@ -5,7 +5,7 @@
  */
 
 export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star";
-export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting";
 
 export type Piece = {
   label: string;
@@ -39,6 +39,7 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   goal: { colour: "#ffffff", edge: "#1f2937", name: "Checkered flag", meaning: "The goal" },
   star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Star: collect it" },
   moving: { colour: "#fb923c", edge: "#c2410c", name: "Orange", meaning: "Moving platform" },
+  tilting: { colour: "#b794f6", edge: "#6d28d9", name: "Purple", meaning: "Tilts when you stand on it" },
 };
 
 /** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */
@@ -54,13 +55,20 @@ export type Motion = {
   loop: boolean;
 };
 
-export type Block = { id: string; piece: PieceId; x: number; y: number; z: number; rot: number; move?: Motion };
+export type Block = {
+  id: string; piece: PieceId; x: number; y: number; z: number; rot: number;
+  /** A moving platform */
+  move?: Motion;
+  /** A seesaw platform that tips toward where you stand (pivot in the middle) */
+  tilt?: true;
+};
 
-/** Can this piece be made into a moving platform? (Plain solid blocks only, for now.) */
+/** Can this piece be made into a moving or tilting platform? (Plain solid blocks only, for now.) */
 export const canMove = (piece: PieceId) => PIECES[piece].behaviour === "solid";
 
-/** Behaviour colour for a block (moving blocks are orange). */
-export const behaviourOf = (b: Pick<Block, "piece" | "move">): Behaviour => (b.move ? "moving" : PIECES[b.piece].behaviour);
+/** Behaviour colour for a block (moving blocks are orange, tilting ones purple). */
+export const behaviourOf = (b: Pick<Block, "piece" | "move" | "tilt">): Behaviour =>
+  b.move ? "moving" : b.tilt ? "tilting" : PIECES[b.piece].behaviour;
 
 /** Footprint after rotation: [x size, height, z size]. Rotation is in quarter turns around the vertical. */
 export function footprint(piece: PieceId, rot: number): [number, number, number] {

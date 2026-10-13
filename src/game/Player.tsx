@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { carriers, type Carrier } from "./carriers";
+import { carriers, topAt, type Carrier } from "./carriers";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
@@ -182,18 +182,22 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
    * Moving platforms, as simple boxes: land on and stand on their tops (and ride them), and get
    * pushed out of their sides. Moves `next` in place; returns true if we're standing on one.
    */
-  const touchPlatforms = (start: { y: number }, next: { x: number; y: number; z: number }, riding: Carrier | null) => {
+  const touchPlatforms = (start: { x: number; y: number; z: number }, next: { x: number; y: number; z: number }, riding: Carrier | null) => {
     const s = st.current;
     let standing = false;
     for (const pl of carriers.values()) {
-      const top = pl.y + pl.hy, bottom = pl.y - pl.hy;
       const ex = next.x - pl.x, ez = next.z - pl.z;
+      // The top's height right under us (tilting platforms have a sloped top), measured within its edges
+      const cx = pl.x + Math.max(-pl.hx, Math.min(pl.hx, ex)), cz = pl.z + Math.max(-pl.hz, Math.min(pl.hz, ez));
+      const top = topAt(pl, cx, cz), bottom = pl.y - pl.hy - Math.abs(pl.nx) * pl.hx - Math.abs(pl.nz) * pl.hz;
       const feet = next.y - (HALF + RADIUS), head = next.y + HALF + RADIUS;
       // Standing on it: over its top (a little past the edge still counts, as on normal ground),
-      // and either already riding it or coming down onto it this frame
+      // and either already riding it (we stay stuck to it, even as it tips away under us)
+      // or coming down onto it this frame
       const overTop = Math.abs(ex) < pl.hx + RADIUS * 0.5 && Math.abs(ez) < pl.hz + RADIUS * 0.5;
-      const wasAbove = start.y - (HALF + RADIUS) >= top - pl.dy - 0.05;
-      if (overTop && s.vel.y <= 0.1 && feet <= top + 0.05 && (pl === riding || wasAbove)) {
+      const wasAbove = start.y - (HALF + RADIUS) >= top - pl.dy - 0.1;
+      const reach = pl === riding ? 0.35 : 0.05;
+      if (overTop && s.vel.y <= 0.1 && feet <= top + reach && (pl === riding || wasAbove)) {
         next.y = top + HALF + RADIUS + 0.01;
         s.riding = pl;
         pl.stoodOn = true;

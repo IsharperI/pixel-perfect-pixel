@@ -257,6 +257,9 @@
   .insp-remove { display: block; margin-top: .2rem; font-size: .72rem; }
   .insp-make { display: flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem; border-radius: .6rem; font-weight: 800; font-size: .9rem; background: #fb923c; color: #fff; box-shadow: 0 4px 14px -4px #fb923c; transition: all .15s; }
   .insp-make:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .insp-makes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .insp-makes .insp-make { font-size: .8rem; padding: .55rem .3rem; gap: .35rem; }
+  .insp-make[data-kind="tilt"] { background: #8b5cf6; box-shadow: 0 4px 14px -4px #8b5cf6; }
   .insp-row { display: flex; flex-direction: column; gap: .25rem; }
   .insp-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-foreground); }
   .insp-seg { display: flex; gap: 3px; padding: 3px; border-radius: .6rem; background: var(--secondary); }

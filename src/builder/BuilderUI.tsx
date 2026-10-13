@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser, Hammer, MousePointer2, MoveRight, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
+import { Eraser, Hammer, MousePointer2, MoveRight, Scale, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
 import { useLevel, type Tool } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
@@ -17,7 +17,7 @@ const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
 
 const HINTS: Record<Tool, string> = {
   build: "Click to add a piece, or drag to fill an area · R rotates · right-drag turns the view · middle-drag slides · scroll zooms",
-  select: "Click a block, then drag its arrows to move it (green = up, to make it float) · Make it move for a moving platform · R rotates · Delete removes",
+  select: "Click a block, then drag its arrows to move it (green = up, to make it float) · Make it move or tilt for special platforms · R rotates · Delete removes",
   erase: "Click a block to remove it, or drag to clear an area · Ctrl+Z brings it back · right-drag turns the view",
 };
 
@@ -295,17 +295,30 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
   return (
     <div className="insp" data-panel={panelOpen} aria-label="Selected piece">
       <div className="insp-head">
-        <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : label}</span>
+        <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : block.tilt ? `Tilting ${label.toLowerCase()}` : label}</span>
         <button className="insp-x" onClick={(e) => { blur(e); S.select(null); }} aria-label="Deselect"><X size={14} aria-hidden /></button>
       </div>
       {!canMove(block.piece) ? (
-        <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
+        <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move or tilt (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
+      ) : block.tilt ? (
+        <>
+          <p className="insp-note">
+            It tips toward whichever {block.piece === "plank" ? "end" : "side"} you stand on, like a seesaw, and slowly levels out when you step off.
+            The pivot is in the middle.
+          </p>
+          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setTilt(block.id, false); }}>Stop it tilting</button>
+        </>
       ) : !m ? (
         <>
-          <button className="insp-make" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
-            <MoveRight size={16} aria-hidden /> Make it move
-          </button>
-          <p className="insp-note">It turns orange and travels between stops you place.</p>
+          <div className="insp-makes">
+            <button className="insp-make" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
+              <MoveRight size={16} aria-hidden /> Make it move
+            </button>
+            <button className="insp-make" data-kind="tilt" onClick={(e) => { blur(e); S.setTilt(block.id, true); }}>
+              <Scale size={16} aria-hidden /> Make it tilt
+            </button>
+          </div>
+          <p className="insp-note">Moving platforms turn orange and travel between stops you place. Tilting ones turn purple and tip like a seesaw when you stand on them.</p>
         </>
       ) : (
         <>
@@ -386,7 +399,7 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
 
 /** What each colour means. */
 function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "moving", "start", "goal", "star"];
+  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "start", "goal", "star"];
   return (
     <div className="builder-legend" aria-label="Colour key">
       <p className="builder-heading">Colour key</p>

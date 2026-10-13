@@ -69,6 +69,22 @@ describe("level editor store", () => {
     expect(S().blocks[0]!.move!.stops).toEqual([[3, 4, 0]]);
   });
 
+  it("makes a block tilt, and a platform either moves or tilts", () => {
+    S().place({ piece: "plank", x: 0, y: 2, z: 0, rot: 0 });
+    const id = S().blocks[0]!.id;
+    S().setTilt(id, true);
+    expect(S().blocks[0]!.tilt).toBe(true);
+    S().addStop(id); // making it move stops it tilting
+    expect(S().blocks[0]!.tilt).toBeUndefined();
+    expect(S().blocks[0]!.move).toBeDefined();
+    S().setTilt(id, true); // and the other way round
+    expect(S().blocks[0]!.move).toBeUndefined();
+    S().setTilt(id, false);
+    expect(S().blocks[0]!.tilt).toBeUndefined();
+    S().undo();
+    expect(S().blocks[0]!.tilt).toBe(true);
+  });
+
   it("only lets plain blocks move", () => {
     S().place({ piece: "ramp", x: 0, y: 0, z: 0, rot: 0 });
     S().setMotion(S().blocks[0]!.id, { stops: [[1, 0, 0]], speed: 3, wait: 0, trigger: "always", loop: false });

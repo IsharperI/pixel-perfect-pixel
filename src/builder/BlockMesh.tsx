@@ -88,11 +88,20 @@ export function BlockMesh({
       ) : piece.behaviour === "star" ? (
         <Star id={block.id} see={see} colour={colour} selected={selected} edgeColour={selected ? "#2563eb" : look === "invalid" ? "#c81e1e" : colours.edge} />
       ) : (
-        <mesh {...(geometry ? { geometry } : {})} castShadow={!see} receiveShadow userData={{ blockId: block.id }}>
-          {!geometry && <boxGeometry args={[w, h, l]} />}
-          {material}
-          {edges}
-        </mesh>
+        <>
+          <mesh {...(geometry ? { geometry } : {})} castShadow={!see} receiveShadow userData={{ blockId: block.id }}>
+            {!geometry && <boxGeometry args={[w, h, l]} />}
+            {material}
+            {edges}
+          </mesh>
+          {/* Tilting platforms: a pivot marker in the middle of the top */}
+          {block.tilt && !see && (
+            <mesh position={[0, h / 2 + 0.005, 0]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
+              <ringGeometry args={[0.1, 0.2, 24]} />
+              <meshBasicMaterial color="#5b21b6" />
+            </mesh>
+          )}
+        </>
       )}
     </group>
   );

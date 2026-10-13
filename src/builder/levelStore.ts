@@ -53,6 +53,8 @@ type LevelState = {
   setMotion: (id: string, motion: Motion | undefined) => void;
   /** Change some of a moving platform's settings */
   updateMotion: (id: string, patch: Partial<Motion>) => void;
+  /** Turn a block into a tilting (seesaw) platform, or back into a still one */
+  setTilt: (id: string, on: boolean) => void;
   selectStop: (i: number) => void;
   addStop: (id: string) => void;
   removeStop: (id: string, i: number) => void;
@@ -76,7 +78,7 @@ type LevelState = {
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
 export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
-  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null])]);
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? false])]);
 }
 
 /** The current level as data to save. */
@@ -219,10 +221,22 @@ export const useLevel = create<LevelState>((set, get) => {
       if (!b || (motion && !canMove(b.piece))) return;
       commit(blocks.map((x) => {
         if (x.id !== id) return x;
-        const { move: _, ...rest } = x;
+        const { move: _, tilt: _t, ...rest } = x; // a platform either moves or tilts
         return motion ? { ...rest, move: motion } : rest;
       }));
       set({ stopIndex: motion ? 1 : 0 });
+    },
+
+    setTilt: (id, on) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      if (!b || (on && !canMove(b.piece)) || !!b.tilt === on) return;
+      commit(blocks.map((x) => {
+        if (x.id !== id) return x;
+        const { move: _, tilt: _t, ...rest } = x;
+        return on ? { ...rest, tilt: true as const } : rest;
+      }));
+      set({ stopIndex: 0 });
     },
 
     updateMotion: (id, patch) => {

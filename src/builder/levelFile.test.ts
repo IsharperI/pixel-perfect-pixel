@@ -25,6 +25,14 @@ describe("level files", () => {
     expect("move" in back.blocks[1]!).toBe(false);
   });
 
+  it("saves tilting platforms (plain blocks only)", () => {
+    const blocks = [{ id: "a", piece: "plank" as const, x: 0, y: 1, z: 0, rot: 1, tilt: true as const }];
+    const back = readLevelFile(JSON.parse(JSON.stringify(toLevelFile({ name: "T", rules: DEFAULT_RULES, bestTime: null, blocks }))))!;
+    expect(back.blocks[0]!.tilt).toBe(true);
+    const bad = readLevelFile({ format: LEVEL_FORMAT, blocks: [{ piece: "ramp", x: 0, y: 0, z: 0, tilt: true }] })!;
+    expect("tilt" in bad.blocks[0]!).toBe(false);
+  });
+
   it("rejects things that aren't level files", () => {
     expect(readLevelFile(null)).toBeNull();
     expect(readLevelFile({ format: "platformer-toolkit-3d/character", values: {} })).toBeNull();

@@ -31,7 +31,7 @@ export function toLevelFile(level: LevelData) {
     rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
-    blocks: level.blocks.map(({ piece, x, y, z, rot, move }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}) })),
+    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}) })),
   };
 }
 
@@ -59,7 +59,8 @@ export function readLevelFile(data: unknown): LevelData | null {
     if (PIECES[b.piece].unique && blocks.some((k) => k.piece === b.piece)) continue;
     if (!canPlace(b, blocks)) continue;
     const move = canMove(b.piece) ? readMotion(r["move"]) : undefined;
-    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}) });
+    const tilt = !move && canMove(b.piece) && r["tilt"] === true;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt: true as const } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";
