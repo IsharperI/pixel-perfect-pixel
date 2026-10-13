@@ -10,7 +10,7 @@ export const input = {
   lastOrbitAt: -Infinity,
   // On-screen touch controls (see TouchControls.tsx). Stick is -1..1, +y = forward.
   touch: { x: 0, y: 0, jumpHeld: false, crouchHeld: false },
-  running: false, // run toggle (keyboard: tap Z)
+  running: true, // keyboard: run by default; tap Z to toggle walking
 };
 
 
