@@ -26,7 +26,7 @@ export const PIECES: Record<PieceId, Piece> = {
   steep: { label: "Steep ramp", size: [1, 1, 1], behaviour: "slope", ramp: true },
   start: { label: "Start", size: [1, 1, 1], behaviour: "start", unique: true },
   goal: { label: "Goal flag", size: [1, 1, 1], behaviour: "goal", unique: true },
-  star: { label: "Star", size: [1, 1, 1], behaviour: "star" },
+  star: { label: "Collectable", size: [1, 1, 1], behaviour: "star" },
   bounce: { label: "Bounce pad", size: [1, 1, 1], behaviour: "bounce" },
   checkpoint: { label: "Checkpoint", size: [1, 1, 1], behaviour: "checkpoint" },
   lava: { label: "Lava", size: [1, 1, 1], behaviour: "danger" },
@@ -40,7 +40,7 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   slope: { colour: "#f59ac0", edge: "#c45d8a", name: "Pink", meaning: "Slope: changes your speed" },
   start: { colour: "#ffffff", edge: "#7c8a99", name: "White pad", meaning: "Where you start" },
   goal: { colour: "#ffffff", edge: "#1f2937", name: "Checkered flag", meaning: "The goal" },
-  star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Star: collect it" },
+  star: { colour: "#fbbf24", edge: "#b45309", name: "Gold", meaning: "Collectable: grab it" },
   moving: { colour: "#fb923c", edge: "#c2410c", name: "Orange", meaning: "Moving platform" },
   tilting: { colour: "#b794f6", edge: "#6d28d9", name: "Purple", meaning: "Tilts when you stand on it" },
   vines: { colour: "#4ade80", edge: "#15803d", name: "Vine green", meaning: "Vines: grab (E) and climb" },
@@ -72,6 +72,8 @@ export type Block = {
   vines?: number;
   /** Bounce pads: how high they launch you, in blocks */
   bounce?: number;
+  /** Collectables: can the homing attack lock onto it? */
+  homing?: boolean;
 };
 
 /** Can vines be painted on this block? (Still, plain blocks: not ramps, moving or tilting ones.) */

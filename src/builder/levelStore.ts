@@ -64,6 +64,8 @@ type LevelState = {
   paintVines: (masks: Map<string, number>) => void;
   /** How high a bounce pad launches you, in blocks */
   setBounce: (id: string, height: number) => void;
+  /** Can the homing attack lock onto this collectable? */
+  setHoming: (id: string, on: boolean) => void;
   /** How far a tilting platform tips, in degrees */
   setTiltMax: (id: string, max: number) => void;
   selectStop: (i: number) => void;
@@ -274,6 +276,13 @@ export const useLevel = create<LevelState>((set, get) => {
       const h = Math.min(BOUNCE_MAX, Math.max(BOUNCE_MIN, Math.round(height)));
       if (!b || b.piece !== "bounce" || bounceHeight(b) === h) return;
       commit(blocks.map((x) => (x.id === id ? { ...x, bounce: h } : x)));
+    },
+
+    setHoming: (id, on) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      if (!b || b.piece !== "star" || !!b.homing === on) return;
+      commit(blocks.map((x) => { if (x.id !== id) return x; const { homing: _, ...rest } = x; return on ? { ...rest, homing: true } : rest; }));
     },
 
     setTiltMax: (id, max) => {

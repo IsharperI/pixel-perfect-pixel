@@ -39,8 +39,8 @@ describe("winning", () => {
   });
 
   it("describes the goal", () => {
-    expect(goalSentence(all)).toBe("Collect all the stars, then reach the flag");
-    expect(goalSentence(any)).toBe("Reach the flag or collect all the stars");
+    expect(goalSentence(all)).toBe("Collect all the collectables, then reach the flag");
+    expect(goalSentence(any)).toBe("Reach the flag or collect all the collectables");
     expect(goalSentence(rules({ flag: false }))).toBe("Just a playground");
   });
 });
@@ -49,12 +49,12 @@ describe("level checks", () => {
   it("knows what each goal needs", () => {
     const start = at("start", 0, 0, 0);
     expect(goalMissing(rules({ flag: true }), [start])).toMatch(/Goal flag/);
-    expect(goalMissing(rules({ flag: false, stars: true }), [start])).toMatch(/stars/);
+    expect(goalMissing(rules({ flag: false, stars: true }), [start])).toMatch(/collectables/);
     expect(goalMissing(rules({ flag: true, stars: true, need: "any" }), [start, at("star", 1, 1, 1)])).toBeNull();
     expect(goalMissing(rules({ flag: false }), [])).toBeNull();
     const list = levelChecklist(rules({ flag: false, stars: true }), [start, at("star", 1, 1, 1), at("star", 2, 1, 1), at("goal", 3, 0, 0)]);
     expect(list.map((c) => c.ok)).toEqual([true, true, true]);
-    expect(list[1]!.text).toBe("2 stars to collect");
+    expect(list[1]!.text).toBe("2 collectables to grab");
     expect(levelChecklist(rules({ flag: false, clock: "countdown" }), [start]).some((c) => !c.ok)).toBe(true);
   });
 });

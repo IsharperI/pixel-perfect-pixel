@@ -97,8 +97,8 @@ export const TOUR: TourStep[] = [
     done: (n, s) => count(n.blocks, (b) => b.piece === "checkpoint" || b.piece === "lava") > count(s.blocks, (b) => b.piece === "checkpoint" || b.piece === "lava"),
   },
   {
-    title: "Start, goal and stars",
-    body: "Every level has one white Start pad where you begin. Add a checkered Goal flag and some gold Stars, then open Level settings to choose what wins: reach the flag, collect the stars, or both, with or without a clock.",
+    title: "Start, goal and collectables",
+    body: "Every level has one white Start pad where you begin. Add a checkered Goal flag and some gold Collectables, then open Level settings to choose what wins: reach the flag, grab the collectables, or both, with or without a clock. Pick a collectable with the Move tool to make it a homing attack target.",
     tryIt: "Open Level settings (the Level button, or press L).",
     touch: { tryIt: "Open Level settings (the Level button, top right)." },
     glow: ["piece-start", "piece-goal", "piece-star", "level"],

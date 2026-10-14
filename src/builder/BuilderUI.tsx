@@ -238,7 +238,7 @@ function WinScreen() {
         <div className="win-card">
           <div className="win-emoji" aria-hidden>⏰</div>
           <h2 className="win-title font-display">Out of time!</h2>
-          <p className="win-detail">{rules.stars && left > 0 ? `${left} star${left === 1 ? "" : "s"} still to find. So close!` : "So close! Have another go."}</p>
+          <p className="win-detail">{rules.stars && left > 0 ? `${left} collectable${left === 1 ? "" : "s"} still to find. So close!` : "So close! Have another go."}</p>
           {actions}
         </div>
       </div>
@@ -253,7 +253,7 @@ function WinScreen() {
     else if (!newBest) parts.push("that's the time to beat");
   }
   if (finishTime !== null && rules.clock === "countdown") parts.push(`with ${formatCountdown(rules.limit - finishTime)} to spare`);
-  if (totalStars > 0) parts.push(collected >= totalStars ? `all ${totalStars} star${totalStars === 1 ? "" : "s"}` : `stars: ${collected} of ${totalStars}`);
+  if (totalStars > 0) parts.push(collected >= totalStars ? `all ${totalStars} collectable${totalStars === 1 ? "" : "s"}` : `collectables: ${collected} of ${totalStars}`);
   const detail = parts.join(" · ");
 
   return (
@@ -345,6 +345,8 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
       </div>
       {block.piece === "bounce" ? (
         <BounceSlider id={block.id} height={bounceHeight(block)} />
+      ) : block.piece === "star" ? (
+        <HomingToggle id={block.id} on={!!block.homing} />
       ) : !canMove(block.piece) ? (
         <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move or tilt (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
       ) : block.tilt ? (
@@ -395,6 +397,22 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
         </>
       )}
     </div>
+  );
+}
+
+/** Can the homing attack lock onto this collectable? */
+function HomingToggle({ id, on }: { id: string; on: boolean }) {
+  const characterHas = useSettings((s) => !!s.values["homingAttack"]);
+  return (
+    <>
+      <Choice<boolean> label="Homing attack target" value={on} options={[[false, "Off"], [true, "On"]]} onChange={(v) => useLevel.getState().setHoming(id, v)} />
+      <p className="insp-note">
+        {on
+          ? "In mid-air, the homing attack can lock onto it: press jump to dash to it, grab it and bounce off. It gets a blue ring so players know."
+          : "Switch on to let the homing attack lock onto it in mid-air. Great for chains of collectables over a gap."}
+        {on && !characterHas && <> <b>Your character's Homing Attack is off:</b> switch it on in Character Modifiers (Moves).</>}
+      </p>
+    </>
   );
 }
 

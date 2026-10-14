@@ -32,8 +32,8 @@ export function toLevelFile(level: LevelData) {
     rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
-    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt, vines, bounce }) => ({
-      piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}),
+    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt, vines, bounce, homing }) => ({
+      piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}), ...(homing ? { homing } : {}),
     })),
   };
 }
@@ -67,7 +67,8 @@ export function readLevelFile(data: unknown): LevelData | null {
     const vines = !move && !tilt && PIECES[b.piece].behaviour === "solid" && isInt(v) && v > 0 && v < 16 ? v : 0;
     const bh = r["bounce"];
     const bounce = b.piece === "bounce" && typeof bh === "number" && Number.isFinite(bh) ? Math.min(BOUNCE_MAX, Math.max(BOUNCE_MIN, Math.round(bh))) : 0;
-    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}) });
+    const homing = b.piece === "star" && r["homing"] === true;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}), ...(homing ? { homing } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";

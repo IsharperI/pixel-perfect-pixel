@@ -5,7 +5,11 @@ import * as THREE from "three";
  * dash to. Hitting one pops it (it comes back after a few seconds) and bounces
  * the player up, ready to chain to the next.
  */
-export type Target = { id: number; pos: THREE.Vector3; activeAt: number };
+export type Target = {
+  id: number; pos: THREE.Vector3; activeAt: number;
+  /** Called when the player's homing attack hits it (built levels: collects the collectable) */
+  onHit?: () => void;
+};
 
 const RESPAWN = 3; // seconds before a popped target comes back
 
@@ -32,6 +36,7 @@ export const isActive = (t: Target, now: number) => now >= t.activeAt;
 
 export function popTarget(t: Target, now: number) {
   t.activeAt = now + RESPAWN;
+  t.onHit?.();
 }
 
 /**

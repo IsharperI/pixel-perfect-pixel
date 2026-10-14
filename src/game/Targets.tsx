@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { TARGETS, homingState, isActive, type Target } from "./targets";
 
 /** Floating homing-attack targets plus the lock-on reticle. Visual only (no collision). */
-export function Targets({ list }: { list: Target[] }) {
+export function Targets({ list, orbs = true }: { list: Target[]; orbs?: boolean }) {
   const groups = useRef<(THREE.Group | null)[]>([]);
   // Make these the live targets while this scene is showing
   useEffect(() => {
@@ -40,7 +40,7 @@ export function Targets({ list }: { list: Target[] }) {
 
   return (
     <group>
-      {list.map((t, i) => (
+      {orbs && list.map((t, i) => (
         <group key={t.id} ref={(el) => { groups.current[i] = el; }} position={t.pos.toArray()}>
           <mesh castShadow>
             <torusGeometry args={[0.55, 0.11, 12, 32]} />

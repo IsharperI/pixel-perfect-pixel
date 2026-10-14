@@ -19,6 +19,30 @@ import { playCheckpoint, playOuch, playStar, playTick, playTimeUp, playWin } fro
 import { carriers, type Carrier } from "../game/carriers";
 import { positionAt, stopCentres } from "./motion";
 import { LEVEL_RATE, TIP_RATE, approach, tiltTarget, toLocal } from "./tilt";
+import { Targets } from "../game/Targets";
+import { TARGETS, type Target } from "../game/targets";
+
+/** Pick up a collectable (by walking into it or homing-attacking it). */
+function collectStar(id: string) {
+  const P = usePlay.getState();
+  if (P.won || P.lost || P.collected.includes(id)) return;
+  const S = useSettings.getState().values;
+  playStar(bool(S, "sounds") ? num(S, "soundVolume") : 0, P.collected.length);
+  P.collect(id);
+  for (const t of TARGETS as (Target & { blockId?: string })[]) if (t.blockId === id) t.activeAt = Infinity; // gone for this run
+}
+
+/** Homing-attackable collectables become lock-on targets (fresh every run). */
+function HomingStars({ blocks }: { blocks: Block[] }) {
+  const run = usePlay((s) => s.run);
+  const list = useMemo(
+    () => blocks.filter((b) => b.piece === "star" && b.homing).map((b, id): Target & { blockId: string } => ({
+      id, blockId: b.id, pos: new THREE.Vector3(...centre(b)), activeAt: 0, onHit: () => collectStar(b.id),
+    })),
+    [blocks, run],
+  );
+  return list.length ? <Targets list={list} orbs={false} /> : null;
+}
 
 /** Play the level: every block becomes solid, and your tuned character starts on the Start pad. */
 export function PlayScene() {
@@ -38,6 +62,7 @@ export function PlayScene() {
       <Water />
       <ClimbWalls blocks={blocks} />
       <GoalWatcher />
+      <HomingStars blocks={blocks} />
     </Physics>
   );
 }
@@ -237,7 +262,7 @@ function PlayStar({ block }: { block: Block }) {
   );
 }
 
-/** Each frame: has the player picked up a star, reached the goal, or run out of time? */
+/** Each frame: has the player picked up a collectable, reached the goal, or run out of time? */
 function GoalWatcher() {
   const lastTick = useRef(Infinity);
   const elapsedSinceOuch = useRef(-Infinity); // when lava last sent you back (so it only happens once per touch)
@@ -280,10 +305,7 @@ function GoalWatcher() {
     // Stars can always be collected (in every mode)
     const stars = L.blocks.filter((b) => b.piece === "star");
     for (const s of stars) {
-      if (!P.collected.includes(s.id) && touchesStar(p, s)) {
-        playStar(volume, P.collected.length);
-        P.collect(s.id);
-      }
+      if (!P.collected.includes(s.id) && touchesStar(p, s)) collectStar(s.id);
     }
     const collected = usePlay.getState().collected.length;
 
@@ -291,7 +313,7 @@ function GoalWatcher() {
     const touchingFlag = !!flag && touchesFlag(p, flag);
     if (touchingFlag && flagLocked(r, collected, stars.length)) {
       const left = stars.length - collected;
-      P.showHint(`Collect ${left === 1 ? "the last star" : `all the stars (${left} to go)`} first!`);
+      P.showHint(`Collect ${left === 1 ? "the last collectable" : `all the collectables (${left} to go)`} first!`);
     }
 
     if (hasWon(r, { touchingFlag, collected, totalStars: stars.length })) {

@@ -39,3 +39,15 @@ describe("checkpoints", () => {
     expect(back?.blocks.map((b) => b.piece)).toEqual(["lava", "checkpoint", "checkpoint"]);
   });
 });
+
+describe("homing collectables", () => {
+  it("save the homing flag, only on collectables", () => {
+    const blocks: Block[] = [
+      { id: "a", piece: "star", x: 0, y: 1, z: 0, rot: 0, homing: true },
+      { id: "b", piece: "star", x: 2, y: 1, z: 0, rot: 0 },
+      { id: "c", piece: "cube", x: 4, y: 0, z: 0, rot: 0, homing: true },
+    ];
+    const back = readLevelFile(JSON.parse(JSON.stringify(toLevelFile({ name: "x", rules: DEFAULT_RULES, bestTime: null, blocks }))));
+    expect(back?.blocks.map((b) => !!b.homing)).toEqual([true, false, false]);
+  });
+});

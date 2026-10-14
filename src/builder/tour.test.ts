@@ -21,7 +21,7 @@ describe("level builder tour", () => {
     expect(step("Moving and tilting").done!(st([b("a", "cube", 0, { tilt: { max: 22 } })]), start)).toBe(true);
     expect(step("Climbing vines").done!(st([b("a", "cube", 0, { vines: 4 })]), start)).toBe(true);
     expect(step("Bounce pads").done!(st([b("a", "cube"), b("p", "bounce")]), start)).toBe(true);
-    expect(step("Start, goal and stars").done!(st([], { panelOpen: true }), start)).toBe(true);
+    expect(step("Start, goal and collectables").done!(st([], { panelOpen: true }), start)).toBe(true);
     expect(step("Play it!").done!(st([], { mode: "play" }), start)).toBe(true);
   });
 });

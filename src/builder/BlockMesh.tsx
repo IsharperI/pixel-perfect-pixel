@@ -98,7 +98,7 @@ export function BlockMesh({
       ) : piece.behaviour === "goal" ? (
         <GoalFlag id={block.id} h={h} see={see} locked={locked} tint={look === "solid" ? (locked ? "#b6bcc6" : null) : colour} edge={edges} selected={selected} fadeRef={mat} />
       ) : piece.behaviour === "star" ? (
-        <Star id={block.id} see={see} colour={colour} selected={selected} edgeColour={selected ? "#2563eb" : look === "invalid" ? "#c81e1e" : colours.edge} />
+        <Star id={block.id} see={see} colour={colour} selected={selected} homing={!!block.homing} edgeColour={selected ? "#2563eb" : look === "invalid" ? "#c81e1e" : colours.edge} />
       ) : (
         <>
           <mesh {...(geometry ? { geometry } : {})} castShadow={!see} receiveShadow userData={{ blockId: block.id }}>
@@ -167,15 +167,24 @@ let starGeo: THREE.BufferGeometry | null = null;
 const sharedStar = () => (starGeo ??= starGeometry()); // one shared shape for every star
 
 /** A spinning, bobbing gold star. */
-function Star({ id, see, colour, selected, edgeColour }: { id: string | undefined; see: boolean; colour: string; selected: boolean; edgeColour: string }) {
+function Star({ id, see, colour, selected, edgeColour, homing }: { id: string | undefined; see: boolean; colour: string; selected: boolean; edgeColour: string; homing: boolean }) {
   const spin = useRef<THREE.Group>(null);
+  const ring = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     if (!spin.current) return;
     spin.current.rotation.y = clock.elapsedTime * 1.8;
     spin.current.position.y = Math.sin(clock.elapsedTime * 2.5) * 0.06;
+    if (ring.current) { ring.current.rotation.x = Math.PI / 2 + Math.sin(clock.elapsedTime * 1.3) * 0.5; ring.current.rotation.y = clock.elapsedTime * -2.4; }
   });
   return (
     <group ref={spin}>
+      {/* Homing-attackable: a glowing blue ring, like the homing targets */}
+      {homing && (
+        <mesh ref={ring} raycast={noRaycast}>
+          <torusGeometry args={[0.52, 0.05, 10, 40]} />
+          <meshStandardMaterial color="#7cc6fe" emissive="#38bdf8" emissiveIntensity={0.9} transparent={see} opacity={see ? 0.5 : 1} />
+        </mesh>
+      )}
       <mesh geometry={sharedStar()} castShadow={!see} userData={{ blockId: id }}>
         <meshStandardMaterial
           color={colour}

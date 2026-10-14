@@ -122,7 +122,7 @@ export function LevelPanel() {
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <p className="level-heading">What wins the level?</p>
         <div className="goal-grid">
-          {([["flag", "🏁", "Reach the flag", "Touch the checkered flag."], ["stars", "⭐", "Collect the stars", "Grab every star."]] as const).map(([key, emoji, title, blurb]) => (
+          {([["flag", "🏁", "Reach the flag", "Touch the checkered flag."], ["stars", "⭐", "Get the collectables", "Grab every collectable."]] as const).map(([key, emoji, title, blurb]) => (
             <button key={key} className="goal-card" role="checkbox" aria-checked={rules[key]} data-on={rules[key]} onClick={() => setRules({ [key]: !rules[key] })}>
               <span className="goal-tick" aria-hidden>{rules[key] && <Check size={13} strokeWidth={3} />}</span>
               <span className="goal-emoji" aria-hidden>{emoji}</span>
@@ -134,10 +134,10 @@ export function LevelPanel() {
         {rules.flag && rules.stars && (
           <div className="goal-need" role="radiogroup" aria-label="With both ticked">
             <button role="radio" aria-checked={rules.need === "all"} data-on={rules.need === "all"} onClick={() => setRules({ need: "all" })}>
-              <strong>Do all of them</strong><span>Flag is locked 🔒 until every star is found</span>
+              <strong>Do all of them</strong><span>Flag is locked 🔒 until every collectable is found</span>
             </button>
             <button role="radio" aria-checked={rules.need === "any"} data-on={rules.need === "any"} onClick={() => setRules({ need: "any" })}>
-              <strong>Do any one</strong><span>Reach the flag <em>or</em> collect every star</span>
+              <strong>Do any one</strong><span>Reach the flag <em>or</em> grab every collectable</span>
             </button>
           </div>
         )}

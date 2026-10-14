@@ -48,9 +48,9 @@ export function hasWon(r: Rules, s: { touchingFlag: boolean; collected: number; 
 
 /** A short sentence describing what to do, e.g. "Collect all the stars, then reach the flag". */
 export function goalSentence(r: Rules): string {
-  if (r.flag && r.stars) return r.need === "all" ? "Collect all the stars, then reach the flag" : "Reach the flag or collect all the stars";
+  if (r.flag && r.stars) return r.need === "all" ? "Collect all the collectables, then reach the flag" : "Reach the flag or collect all the collectables";
   if (r.flag) return "Reach the flag";
-  if (r.stars) return "Collect all the stars";
+  if (r.stars) return "Collect all the collectables";
   return "Just a playground";
 }
 
@@ -64,7 +64,7 @@ export function levelChecklist(r: Rules, blocks: Block[]) {
     { ok: blocks.some((b) => b.piece === "start"), text: "A Start pad, where you begin" },
   ];
   if (r.flag) items.push({ ok: hasFlag, text: "A Goal flag to reach" });
-  if (r.stars) items.push({ ok: stars > 0, text: stars ? `${stars} star${stars === 1 ? "" : "s"} to collect` : "At least one star to collect" });
+  if (r.stars) items.push({ ok: stars > 0, text: stars ? `${stars} collectable${stars === 1 ? "" : "s"} to grab` : "At least one collectable to grab" });
   if (!r.flag && hasFlag) items.push({ ok: true, warn: true, text: "The Goal flag is just for show (Reach the flag isn't ticked)" });
   if (isPlayground(r) && r.clock !== "none") items.push({ ok: false, text: "Tick a goal so the clock has something to time" });
   return items;
@@ -74,9 +74,9 @@ export function levelChecklist(r: Rules, blocks: Block[]) {
 export function goalMissing(r: Rules, blocks: Block[]): string | null {
   const hasFlag = blocks.some((b) => b.piece === "goal");
   const hasStars = blocks.some((b) => b.piece === "star");
-  if (r.flag && r.stars && r.need === "any") return hasFlag || hasStars ? null : "Add a Goal flag or some stars to finish this level";
+  if (r.flag && r.stars && r.need === "any") return hasFlag || hasStars ? null : "Add a Goal flag or some collectables to finish this level";
   if (r.flag && !hasFlag) return "Add a Goal flag to finish this level";
-  if (r.stars && !hasStars) return "Add some stars to collect";
+  if (r.stars && !hasStars) return "Add some collectables to grab";
   return null;
 }
 
