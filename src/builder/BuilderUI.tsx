@@ -11,6 +11,7 @@ import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
 import { useSettings, useUI } from "../game/settings";
 import { PieceIcon } from "./PieceIcon";
+import { ShareButton } from "./ShareLevel";
 
 const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
   { id: "build", label: "Build", key: "B", icon: Hammer },
@@ -102,6 +103,7 @@ export function BuilderUI() {
         <button className="builder-level-btn" data-tour="level" data-on={panelOpen} onClick={(e) => { blur(e); setPanelOpen(!panelOpen); }} title="Level settings: goal, saving and opening levels (L)">
           <Settings2 size={16} aria-hidden /> <span className="btn-label">Level</span> <kbd>L</kbd>
         </button>
+        <ShareButton />
         <button className="builder-play" data-tour="play" onClick={(e) => { blur(e); startPlay(); }} title="Play your level">
           <Play size={18} aria-hidden fill="currentColor" /> Play
         </button>

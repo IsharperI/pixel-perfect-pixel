@@ -93,7 +93,7 @@ type LevelState = {
 
 /** A fingerprint of everything that gets saved, to tell whether there are unsaved changes. */
 export function levelSig(s: Pick<LevelState, "name" | "rules" | "blocks">): string {
-  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? null, b.vines ?? 0, b.bounce ?? 0])]);
+  return JSON.stringify([s.name, s.rules, s.blocks.map((b) => [b.piece, b.x, b.y, b.z, b.rot, b.move ?? null, b.tilt ?? null, b.vines ?? 0, b.bounce ?? 0, b.homing ?? false])]);
 }
 
 /** The current level as data to save. */

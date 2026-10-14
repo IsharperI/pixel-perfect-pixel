@@ -114,7 +114,7 @@ export const TOUR: TourStep[] = [
   },
   {
     title: "Save it",
-    body: "Save keeps your level in this browser, and Load opens your saved levels. In Level settings you can also export a level as a file to share.",
+    body: "Save keeps your level in this browser, and Load opens your saved levels. To show a friend, press Share for a link that opens your level for them (or export it as a file in Level settings).",
     tryIt: "Press Save (top left).",
     glow: ["save"],
     done: (n) => listSavedLevels().some((l) => l.id === n.levelId),

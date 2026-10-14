@@ -453,6 +453,11 @@
 @media (max-width: 760px) { .controls-bar[data-touch="true"] { display: none; } }
 @media (max-width: 1200px) { .controls-bar[data-tutorial="true"] { display: none; } } /* the tutorial card covers the controls */
 
+.share-card { width: min(480px, calc(100% - 32px)); }
+.share-row { display: flex; gap: .5rem; margin-top: .3rem; }
+.share-field { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: .75rem; padding: .55rem .7rem; border-radius: .6rem; border: 1px solid var(--border); background: var(--secondary); color: var(--foreground); }
+.share-note { font-size: .78rem; color: var(--muted-foreground); }
+
 @media (max-width: 600px) {
   .tab-long { display: none; }
   .tab-short { display: inline; }
@@ -460,6 +465,9 @@
   .builder-level-btn .btn-label, .builder-level-btn kbd { display: none; }
   .builder-level-btn { padding: .55rem .65rem; }
   .builder-top { gap: .35rem; }
+  /* Building on a phone: Play on top, the small round buttons in a row under it (clear of the tools) */
+  .builder-top:has(.builder-level-btn) { flex-wrap: wrap; justify-content: flex-end; width: 136px; }
+  .builder-top:has(.builder-level-btn) .builder-play { order: -1; }
   .play-hud { top: 70px; max-width: calc(100% - 24px); }
   .play-hud-pill { font-size: .85rem; padding: .35rem .8rem; gap: .4rem; }
   .play-hud-goal > span:last-child { display: none; }

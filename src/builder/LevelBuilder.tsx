@@ -10,6 +10,7 @@ import { PlayScene } from "./PlayScene";
 import { BuilderUI, startPlay } from "./BuilderUI";
 import { LevelPanel, saveCurrentLevel } from "./LevelPanel";
 import { BuilderTour } from "./BuilderTour";
+import { SharedLevelOpener } from "./ShareLevel";
 import { usePlay } from "./playState";
 import { useUI } from "../game/settings";
 import { levelSig, useLevel, type Tool } from "./levelStore";
@@ -38,6 +39,7 @@ export function LevelBuilder() {
         {mode === "play" && <TouchControls panelOpen={false} />}
         <BuilderUI />
         <BuilderTour />
+      <SharedLevelOpener />
         {mode === "edit" && <LevelPanel />}
       </div>
     </div>
