@@ -130,7 +130,7 @@ export function playExhale(volume: number) {
 // Any audio file dropped into src/game/sounds/ named after a sound (jump, land,
 // skid, flap, exhale) replaces the generated version. Found automatically at
 // build time, so there's nothing to register. See src/game/sounds/README.md.
-export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win" | "timeup" | "tick" | "bounce";
+export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win" | "timeup" | "tick" | "bounce" | "checkpoint" | "ouch";
 const FILES = import.meta.glob("./sounds/*.{mp3,ogg,wav,m4a}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 const CUSTOM_URLS: Partial<Record<SoundName, string>> = {};
 for (const [path, url] of Object.entries(FILES)) {
@@ -377,4 +377,31 @@ export function playBoing(volume: number, boosted = false) {
   o.connect(g).connect(a.destination);
   o.start(t); lfo.start(t);
   o.stop(t + 0.4); lfo.stop(t + 0.4);
+}
+
+/** A bright rising "ding-ding-ding" for reaching a checkpoint. */
+export function playCheckpoint(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("checkpoint", 0.6 * volume)) return;
+  [784, 988, 1319].forEach((f, i) => chime(a, f, i * 0.08, 0.22, 0.14 * volume));
+}
+
+/** A short downward "bwomp" for touching a hazard. */
+export function playOuch(volume: number) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("ouch", 0.6 * volume)) return;
+  const t = a.currentTime;
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(330, t);
+  o.frequency.exponentialRampToValueAtTime(90, t + 0.3);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.14 * volume, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+  o.connect(g).connect(a.destination);
+  o.start(t);
+  o.stop(t + 0.36);
 }

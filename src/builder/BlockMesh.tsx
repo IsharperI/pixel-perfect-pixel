@@ -19,7 +19,7 @@ type Look = "solid" | "ghost" | "invalid" | "erase";
  * camera fade it when it blocks the view).
  */
 export function BlockMesh({
-  block, look = "solid", fadeId, editor = false, selected = false, local = false, locked = false, vinePreview,
+  block, look = "solid", fadeId, editor = false, selected = false, local = false, locked = false, vinePreview, lit,
 }: {
   block: Omit<Block, "id"> & { id?: string };
   look?: Look;
@@ -30,6 +30,8 @@ export function BlockMesh({
   local?: boolean;
   /** Goal flag only: grey with a padlock (it can't be reached yet) */
   locked?: boolean;
+  /** Checkpoints in Play: lit up once you've reached them (grey until then) */
+  lit?: boolean;
   /** Painting: a side (local face bit) to highlight, and whether painting adds or removes vines there */
   vinePreview?: { face: number; add: boolean } | undefined;
 }) {
@@ -87,6 +89,10 @@ export function BlockMesh({
             </>
           )}
         </>
+      ) : piece.behaviour === "checkpoint" ? (
+        <Checkpoint id={block.id} h={h} see={see} tint={look === "solid" ? null : colour} edge={edges} selected={selected} fadeRef={mat} lit={lit ?? true} />
+      ) : piece.behaviour === "danger" ? (
+        <Lava id={block.id} w={w} h={h} l={l} see={see} colour={colour} edge={edges} fadeRef={mat} />
       ) : piece.behaviour === "bounce" ? (
         <BouncePad id={block.id} h={h} see={see} colour={colour} edge={edges} selected={selected} fadeRef={mat} />
       ) : piece.behaviour === "goal" ? (
@@ -272,6 +278,63 @@ function BouncePad({ id, h, see, colour, edge, selected, fadeRef }: {
           {edge}
         </mesh>
       </group>
+    </>
+  );
+}
+
+/** A checkpoint: a pad with a short pole and a pennant, blue when lit (grey until you reach it in Play). */
+function Checkpoint({ id, h, see, tint, edge, selected, fadeRef, lit }: {
+  id: string | undefined; h: number; see: boolean; tint: string | null; edge: React.ReactNode; selected: boolean;
+  fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>; lit: boolean;
+}) {
+  const flag = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => { if (flag.current) flag.current.rotation.y = Math.sin(clock.elapsedTime * 2.6) * (lit ? 0.25 : 0.08); });
+  const look = { transparent: see, opacity: see ? 0.5 : 1, depthWrite: !see };
+  const glow = { emissive: selected ? "#3b82f6" : "#000000", emissiveIntensity: selected ? 0.35 : 0 };
+  const bottom = -h / 2;
+  const flagColour = tint ?? (lit ? "#3b82f6" : "#9ca3af");
+  return (
+    <>
+      <mesh position={[0, bottom + 0.08, 0]} castShadow={!see} receiveShadow userData={{ blockId: id }}>
+        <boxGeometry args={[0.92, 0.16, 0.92]} />
+        <meshStandardMaterial ref={fadeRef} color={tint ?? "#dbeafe"} roughness={0.7} {...look} {...glow} {...(see ? {} : STENCIL_LEVEL)} />
+        {edge}
+      </mesh>
+      <mesh position={[0, bottom + 0.85, 0]} castShadow={!see} userData={{ blockId: id }}>
+        <cylinderGeometry args={[0.035, 0.035, 1.4, 8]} />
+        <meshStandardMaterial color={tint ?? "#64748b"} metalness={0.4} roughness={0.4} {...look} />
+      </mesh>
+      <group ref={flag} position={[0, bottom + 1.35, 0]}>
+        <mesh position={[0.24, 0, 0]} rotation-z={-Math.PI / 2} castShadow={!see} userData={{ blockId: id }}>
+          <coneGeometry args={[0.17, 0.48, 3]} />
+          <meshStandardMaterial color={flagColour} emissive={lit && !tint ? "#3b82f6" : "#000000"} emissiveIntensity={lit && !tint ? 0.35 : 0} {...look} />
+        </mesh>
+      </group>
+    </>
+  );
+}
+
+/** Lava: a glowing red-orange block that gently pulses. */
+function Lava({ id, w, h, l, see, colour, edge, fadeRef }: {
+  id: string | undefined; w: number; h: number; l: number; see: boolean; colour: string; edge: React.ReactNode;
+  fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>;
+}) {
+  const glowMat = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => { if (glowMat.current) glowMat.current.emissiveIntensity = 0.55 + Math.sin(clock.elapsedTime * 3) * 0.2; });
+  const look = { transparent: see, opacity: see ? 0.5 : 1, depthWrite: !see };
+  return (
+    <>
+      <mesh castShadow={!see} receiveShadow userData={{ blockId: id }}>
+        <boxGeometry args={[w, h, l]} />
+        <meshStandardMaterial ref={fadeRef} color={colour} roughness={0.6} emissive="#f97316" emissiveIntensity={see ? 0 : 0.35} {...look} {...(see ? {} : STENCIL_LEVEL)} />
+        {edge}
+      </mesh>
+      {!see && (
+        <mesh position={[0, h / 2 + 0.006, 0]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
+          <planeGeometry args={[w * 0.96, l * 0.96]} />
+          <meshStandardMaterial ref={glowMat} color="#fb923c" emissive="#fbbf24" emissiveIntensity={0.55} roughness={0.4} />
+        </mesh>
+      )}
     </>
   );
 }

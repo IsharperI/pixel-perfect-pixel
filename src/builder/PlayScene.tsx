@@ -6,15 +6,16 @@ import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
 import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
-import { flagLocked, hasWon, isPlayground, touchesFlag, touchesStar } from "./rules";
+import { flagLocked, hasWon, isPlayground, touchesBox, touchesFlag, touchesStar } from "./rules";
+import { respawn } from "../game/respawn";
 import { saveBestTime, listSavedLevels } from "./levelFile";
-import { PIECES, bounceHeight, bounds, canPaint, centre, footprint, spawnPoint, type Block } from "./pieces";
+import { PIECES, bounceHeight, bounds, canPaint, centre, footprint, spawnPoint, standOnPad, type Block } from "./pieces";
 import { bouncePads, type Pad } from "../game/bounce";
 import { boxFaces, climbFaces, findGrab, rotateFaces } from "../game/climb";
 import { Player } from "../game/Player";
 import { useInputListeners } from "../game/input";
 import { liveStats, useSettings, useUI, bool, num } from "../game/settings";
-import { playStar, playTick, playTimeUp, playWin } from "../game/sfx";
+import { playCheckpoint, playOuch, playStar, playTick, playTimeUp, playWin } from "../game/sfx";
 import { carriers, type Carrier } from "../game/carriers";
 import { positionAt, stopCentres } from "./motion";
 import { LEVEL_RATE, TIP_RATE, approach, tiltTarget, toLocal } from "./tilt";
@@ -45,6 +46,8 @@ function PlayBlock({ block }: { block: Block }) {
   const fadeId = useId(); // lets the camera fade this block when it's in the way
   const isGoal = block.piece === "goal";
   const isPad = block.piece === "bounce";
+  const isCheckpoint = block.piece === "checkpoint";
+  const lit = usePlay((s) => s.checkpoint === block.id);
   // Bounce pads: let the player know where they are
   useEffect(() => {
     if (!isPad) return;
@@ -57,14 +60,15 @@ function PlayBlock({ block }: { block: Block }) {
     // the pole); everything else is a box
     <RigidBody
       type="fixed"
-      colliders={isGoal || isPad ? false : PIECES[block.piece].ramp ? "hull" : "cuboid"}
+      colliders={isGoal || isPad || isCheckpoint ? false : PIECES[block.piece].ramp ? "hull" : "cuboid"}
       position={centre(block)}
       rotation={[0, (block.rot * Math.PI) / 2, 0]}
       userData={{ fadeId }}
     >
       {isGoal && <CuboidCollider args={[0.46, 0.1, 0.46]} position={[0, -0.4, 0]} />}
       {isPad && <CuboidCollider args={[0.46, 0.14, 0.46]} position={[0, -0.36, 0]} />}
-      {isGoal ? <PlayFlag block={block} fadeId={fadeId} /> : <BlockMesh block={block} fadeId={fadeId} local />}
+      {isCheckpoint && <CuboidCollider args={[0.46, 0.08, 0.46]} position={[0, -0.42, 0]} />}
+      {isGoal ? <PlayFlag block={block} fadeId={fadeId} /> : <BlockMesh block={block} fadeId={fadeId} local {...(isCheckpoint ? { lit } : {})} />}
     </RigidBody>
   );
 }
@@ -236,6 +240,9 @@ function PlayStar({ block }: { block: Block }) {
 /** Each frame: has the player picked up a star, reached the goal, or run out of time? */
 function GoalWatcher() {
   const lastTick = useRef(Infinity);
+  const elapsedSinceOuch = useRef(-Infinity); // when lava last sent you back (so it only happens once per touch)
+  // Leaving Play: forget checkpoints
+  useEffect(() => () => { respawn.point = null; respawn.requested = false; }, []);
   useFrame(() => {
     const L = useLevel.getState();
     const P = usePlay.getState();
@@ -249,6 +256,25 @@ function GoalWatcher() {
     // Next to vines (and not climbing yet)? A reminder of how to grab on
     if (bool(S, "climbing") && liveStats.move !== "climbing" && climbFaces.length && findGrab(p.x, p.y, p.z)) {
       P.showHint(useUI.getState().touchMode ? "Tap Grab to climb the vines" : "Press E to climb the vines");
+    }
+
+    // Checkpoints: touch one to come back there after a fall
+    for (const cp of L.blocks) {
+      if (cp.piece !== "checkpoint" || P.checkpoint === cp.id || !touchesFlag(p, cp)) continue;
+      P.reachCheckpoint(cp.id, standOnPad(cp));
+      playCheckpoint(volume);
+      P.showHint("Checkpoint!");
+    }
+    // Lava: back to the last checkpoint (or the start)
+    if (elapsedSinceOuch.current < performance.now() / 1000 - 0.6) {
+      for (const lv of L.blocks) {
+        if (lv.piece !== "lava" || !touchesBox(p, bounds(lv))) continue;
+        respawn.requested = true;
+        elapsedSinceOuch.current = performance.now() / 1000;
+        playOuch(volume);
+        P.showHint(usePlay.getState().checkpoint ? "Ouch! Back to the checkpoint" : "Ouch! Back to the start");
+        break;
+      }
     }
 
     // Stars can always be collected (in every mode)

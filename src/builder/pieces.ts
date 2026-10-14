@@ -4,8 +4,8 @@
  * Colour = behaviour: every block's colour tells players what it does.
  */
 
-export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star" | "bounce";
-export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting" | "vines" | "bounce";
+export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star" | "bounce" | "checkpoint" | "lava";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting" | "vines" | "bounce" | "checkpoint" | "danger";
 
 export type Piece = {
   label: string;
@@ -28,9 +28,11 @@ export const PIECES: Record<PieceId, Piece> = {
   goal: { label: "Goal flag", size: [1, 1, 1], behaviour: "goal", unique: true },
   star: { label: "Star", size: [1, 1, 1], behaviour: "star" },
   bounce: { label: "Bounce pad", size: [1, 1, 1], behaviour: "bounce" },
+  checkpoint: { label: "Checkpoint", size: [1, 1, 1], behaviour: "checkpoint" },
+  lava: { label: "Lava", size: [1, 1, 1], behaviour: "danger" },
 };
 
-export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "bounce", "start", "goal", "star"];
+export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "bounce", "lava", "start", "checkpoint", "goal", "star"];
 
 /** Colour for each behaviour (and the legend). */
 export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string; name: string; meaning: string }> = {
@@ -43,6 +45,8 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   tilting: { colour: "#b794f6", edge: "#6d28d9", name: "Purple", meaning: "Tilts when you stand on it" },
   vines: { colour: "#4ade80", edge: "#15803d", name: "Vine green", meaning: "Vines: grab (E) and climb" },
   bounce: { colour: "#22d3ee", edge: "#0e7490", name: "Cyan", meaning: "Bounce pad: springs you up" },
+  checkpoint: { colour: "#60a5fa", edge: "#1d4ed8", name: "Blue flag", meaning: "Checkpoint: come back here" },
+  danger: { colour: "#ef4444", edge: "#991b1b", name: "Red", meaning: "Lava: ouch! back to checkpoint" },
 };
 
 /** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */
@@ -116,6 +120,9 @@ export function canPlace(candidate: Omit<Block, "id">, blocks: Block[], ignoreId
   if (min[0] < -BUILD_LIMIT || max[0] > BUILD_LIMIT || min[2] < -BUILD_LIMIT || max[2] > BUILD_LIMIT) return false;
   return !blocks.some((b) => b.id !== ignoreId && overlaps(candidate, b) && !(PIECES[candidate.piece].unique && b.piece === candidate.piece));
 }
+
+/** Where the character stands on a pad piece (start or checkpoint) at cell (x, y, z). */
+export const standOnPad = (b: Pick<Block, "x" | "y" | "z">): [number, number, number] => [b.x + 0.5, b.y + 0.2 + 0.95 + 0.05, b.z + 0.5];
 
 /** Where the character appears: standing on the start pad. */
 export function spawnPoint(blocks: Block[]): [number, number, number] {

@@ -505,7 +505,7 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
 
 /** What each colour means. */
 function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "bounce", "start", "goal", "star"];
+  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "bounce", "danger", "start", "checkpoint", "goal", "star"];
   return (
     <div className="builder-legend" aria-label="Colour key">
       <p className="builder-heading">Colour key</p>

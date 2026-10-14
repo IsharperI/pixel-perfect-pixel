@@ -53,6 +53,19 @@ export function PieceIcon({ piece, size = 34 }: { piece: PieceId; size?: number 
           <path d="M6 16 L6 19 L20 26 L34 19 L34 16" fill={front} stroke={line} strokeWidth="1.2" strokeLinejoin="round" />
         </>
       )}
+      {piece === "checkpoint" && (
+        <>
+          <path d="M6 28 L20 21 L34 28 L20 35 Z" fill="#dbeafe" stroke="#1d4ed8" strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M20 28 L20 6" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M20 6 L32 10 L20 14 Z" fill="#3b82f6" stroke="#1d4ed8" strokeWidth="1" strokeLinejoin="round" />
+        </>
+      )}
+      {piece === "lava" && (
+        <>
+          {box(20, 9, 10, 10, 12)}
+          <path d="M14 14 q3 -3 6 0 t6 0" fill="none" stroke="#fde047" strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      )}
       {piece === "star" && (
         <path
           d="M20 5 L24.1 14.4 L34.3 15.4 L26.6 22.2 L28.8 32.2 L20 27 L11.2 32.2 L13.4 22.2 L5.7 15.4 L15.9 14.4 Z"

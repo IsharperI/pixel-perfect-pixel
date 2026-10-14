@@ -19,6 +19,8 @@ named after the sound it replaces:
 | `tick.mp3`   | the last seconds of a countdown      |
 | `timeup.mp3` | a countdown running out              |
 | `bounce.mp3` | springing off a bounce pad           |
+| `checkpoint.mp3` | reaching a checkpoint            |
+| `ouch.mp3`   | touching lava                        |
 
 - `.mp3`, `.ogg`, `.wav` and `.m4a` all work.
 - Files are picked up automatically; no code changes needed.

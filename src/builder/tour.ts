@@ -90,6 +90,13 @@ export const TOUR: TourStep[] = [
     done: (n, s) => count(n.blocks, (b) => b.piece === "bounce") > count(s.blocks, (b) => b.piece === "bounce"),
   },
   {
+    title: "Checkpoints and lava",
+    body: "Red lava sends you back if you touch it. A blue Checkpoint flag saves your spot: once you've touched it, falling or touching lava brings you back there instead of the Start.",
+    tryIt: "Place a Checkpoint or some Lava.",
+    glow: ["piece-checkpoint", "piece-lava"],
+    done: (n, s) => count(n.blocks, (b) => b.piece === "checkpoint" || b.piece === "lava") > count(s.blocks, (b) => b.piece === "checkpoint" || b.piece === "lava"),
+  },
+  {
     title: "Start, goal and stars",
     body: "Every level has one white Start pad where you begin. Add a checkered Goal flag and some gold Stars, then open Level settings to choose what wins: reach the flag, collect the stars, or both, with or without a clock.",
     tryIt: "Open Level settings (the Level button, or press L).",
@@ -99,8 +106,8 @@ export const TOUR: TourStep[] = [
   },
   {
     title: "Play it!",
-    body: "Press Play to try your level with the character you tuned in Character Modifiers. Fall in the water and you're back at the Start. Press Esc to come back and keep building.",
-    touch: { body: "Press Play to try your level with the character you tuned in Character Modifiers. Use the stick and buttons on screen. Fall in the water and you're back at the Start. Back to building returns you here." },
+    body: "Press Play to try your level with the character you tuned in Character Modifiers. Fall in the water and you're back at the Start (or your last checkpoint). Press Esc to come back and keep building.",
+    touch: { body: "Press Play to try your level with the character you tuned in Character Modifiers. Use the stick and buttons on screen. Fall in the water and you're back at the Start (or your last checkpoint). Back to building returns you here." },
     tryIt: "Press Play.",
     glow: ["play"],
     done: (n) => n.mode === "play",

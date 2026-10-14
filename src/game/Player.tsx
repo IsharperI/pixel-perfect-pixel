@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { carriers, topAt, type Carrier } from "./carriers";
 import { faceCoords, findGrab, vineAt, wallTop, type ClimbFace } from "./climb";
 import { bouncePads, bounceSpeed, padUnder } from "./bounce";
+import { respawn } from "./respawn";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
@@ -646,11 +647,14 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       }
     }
 
-    if (next.y < fallLimit) {
-      b.setTranslation(spawnAt, true);
+    if (next.y < fallLimit || respawn.requested) {
+      // Back to the last checkpoint (if the level has given us one), or the start
+      respawn.requested = false;
+      const back = respawn.point ? tmp.look.set(...respawn.point) : spawnAt;
+      b.setTranslation(back, true);
       s.vel.set(0, 0, 0);
-      s.camTarget.copy(spawnAt);
-      s.lastPos.copy(spawnAt);
+      s.camTarget.copy(back);
+      s.lastPos.copy(back);
       s.move = "none"; s.airJumpsUsed = 0; s.flapsUsed = 0;
       s.riding = null;
       s.climb = null; s.mantleTop = null;

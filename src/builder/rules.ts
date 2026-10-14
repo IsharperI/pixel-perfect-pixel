@@ -140,3 +140,12 @@ export function formatLimit(seconds: number) {
   const m = Math.floor(seconds / 60), s = seconds % 60;
   return m ? `${m} min${s ? ` ${s} sec` : ""}` : `${s} sec`;
 }
+
+/** Is the player (body centre `p`) touching a hazard block (its box), from any side? */
+export function touchesBox(p: P, box: { min: readonly number[]; max: readonly number[] }) {
+  const [x0, y0, z0] = box.min as [number, number, number], [x1, y1, z1] = box.max as [number, number, number];
+  const cx = Math.max(x0, Math.min(x1, p.x)), cz = Math.max(z0, Math.min(z1, p.z));
+  const near = Math.hypot(p.x - cx, p.z - cz) < 0.45 + 0.06;
+  const feet = p.y - HALF_HEIGHT, head = p.y + HALF_HEIGHT;
+  return near && feet < y1 + 0.06 && head > y0;
+}
