@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Blocks, FolderOpen, Save, SlidersHorizontal } from "lucide-react";
-import { useSettings } from "../game/settings";
+import { Blocks, Eye, EyeOff, FolderOpen, Save, SlidersHorizontal } from "lucide-react";
+import { useSettings, useUI } from "../game/settings";
 import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
 
 /**
@@ -16,14 +16,51 @@ export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
       <nav className="app-ribbon-tabs" aria-label="Mode">
         <Link to="/" className="app-tab" activeOptions={{ exact: true }} activeProps={{ "data-active": "true" }}>
           <SlidersHorizontal size={15} aria-hidden />
-          <span>Character Modifiers</span>
+          <span className="tab-long">Character Modifiers</span>
+          <span className="tab-short">Character</span>
         </Link>
         <Link to="/builder" className="app-tab" activeProps={{ "data-active": "true" }}>
           <Blocks size={15} aria-hidden />
-          <span>Level Builder</span>
+          <span className="tab-long">Level Builder</span>
+          <span className="tab-short">Builder</span>
         </Link>
       </nav>
+      <HideUIButton />
     </header>
+  );
+}
+
+/**
+ * Hide UI: tucks away every panel and overlay that covers the game (H on a keyboard),
+ * so you can see what you're doing. It lives in the ribbon, which is always on screen.
+ */
+function HideUIButton() {
+  const hidden = useUI((s) => s.hideUI);
+  const toggle = useUI((s) => s.toggle);
+  // Mark the page, so the stylesheet can hide the overlays (see "Hide UI" in styles.css)
+  useEffect(() => {
+    document.documentElement.dataset["hideUi"] = String(hidden);
+  }, [hidden]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && ((el.tagName === "INPUT" && (el as HTMLInputElement).type === "text") || el.tagName === "TEXTAREA")) return;
+      if (e.code === "KeyH" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) toggle("hideUI");
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [toggle]);
+  return (
+    <button
+      className="ribbon-btn hide-ui-btn"
+      data-hidden={hidden}
+      onClick={(e) => { (e.currentTarget as HTMLElement).blur(); toggle("hideUI"); }}
+      title={hidden ? "Show the panels again (H)" : "Hide the panels so you can see the game (H)"}
+      aria-pressed={hidden}
+    >
+      {hidden ? <Eye size={15} aria-hidden /> : <EyeOff size={15} aria-hidden />}
+      <span>{hidden ? "Show UI" : "Hide UI"}</span>
+    </button>
   );
 }
 

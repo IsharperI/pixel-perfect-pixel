@@ -251,12 +251,17 @@ type UI = {
   showTrail: boolean;
   showGhost: boolean;
   touchMode: boolean; // on-screen touch controls showing
-  toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost") => void;
+  hideUI: boolean; // the Hide UI button: panels and overlays tucked away so you can see the game
+  toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost" | "hideUI") => void;
   setTouchMode: (on: boolean) => void;
 };
+/** Phones and other small screens start with the big panels closed, so you can see the game. */
+const smallScreen = typeof window !== "undefined" && window.innerWidth < 700;
+
 export const useUI = create<UI>((set) => ({
-  panelOpen: true,
-  showDebug: true,
+  panelOpen: !smallScreen,
+  showDebug: !smallScreen,
+  hideUI: false,
   showTrail: true,
   showGhost: true,
   touchMode: false,

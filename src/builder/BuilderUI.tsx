@@ -96,10 +96,10 @@ export function BuilderUI() {
 
       <div className="builder-top" data-panel={panelOpen}>
         <button className="builder-level-btn" data-tour="tour" onClick={(e) => { blur(e); useTour.getState().begin(); }} title="Take the Level Builder tour">
-          <GraduationCap size={16} aria-hidden /> Tour
+          <GraduationCap size={16} aria-hidden /> <span className="btn-label">Tour</span>
         </button>
         <button className="builder-level-btn" data-tour="level" data-on={panelOpen} onClick={(e) => { blur(e); setPanelOpen(!panelOpen); }} title="Level settings: goal, saving and opening levels (L)">
-          <Settings2 size={16} aria-hidden /> Level <kbd>L</kbd>
+          <Settings2 size={16} aria-hidden /> <span className="btn-label">Level</span> <kbd>L</kbd>
         </button>
         <button className="builder-play" data-tour="play" onClick={(e) => { blur(e); startPlay(); }} title="Play your level">
           <Play size={18} aria-hidden fill="currentColor" /> Play

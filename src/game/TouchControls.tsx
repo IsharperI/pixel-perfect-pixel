@@ -13,9 +13,10 @@ const LOOK_SPEED = 1.3; // camera drag sensitivity, relative to mouse dragging
  * lands. Right half: swipe to look around. Bottom-right: Jump and Crouch.
  * Feeds the same `input` object as the keyboard and gamepad.
  */
-export function TouchControls() {
+export function TouchControls({ panelOpen: panelOverride }: { panelOpen?: boolean } = {}) {
   const touchMode = useUI((s) => s.touchMode);
-  const panelOpen = useUI((s) => s.panelOpen);
+  const settingsOpen = useUI((s) => s.panelOpen && !s.hideUI);
+  const panelOpen = panelOverride ?? settingsOpen;
   const climbing = useSettings((s) => s.values["climbing"] === true);
   const layer = useRef<HTMLDivElement>(null);
   const base = useRef<HTMLDivElement>(null);

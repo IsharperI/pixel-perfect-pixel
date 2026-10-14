@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { AppRibbon } from "../components/AppRibbon";
 import { SceneLighting } from "../game/SceneLighting";
 import { SpeedLines } from "../game/SpeedLines";
+import { TouchControls } from "../game/TouchControls";
 import { EditorScene } from "./EditorScene";
 import { PlayScene } from "./PlayScene";
 import { BuilderUI, startPlay } from "./BuilderUI";
@@ -28,6 +29,7 @@ export function LevelBuilder() {
           {mode === "edit" ? <EditorScene /> : <PlayScene key={run} />}
         </Canvas>
         {mode === "play" && <SpeedLines />}
+        {mode === "play" && <TouchControls panelOpen={false} />}
         <BuilderUI />
         <BuilderTour />
         {mode === "edit" && <LevelPanel />}

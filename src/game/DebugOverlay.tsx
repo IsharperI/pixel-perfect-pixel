@@ -19,7 +19,7 @@ export function DebugOverlay() {
   };
 
   return (
-    <div className="pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
+    <div className="debug-overlay pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
       <div className="hud-card pointer-events-auto flex items-center gap-2">
         <button className="chip" data-on={showDebug} onClick={() => toggle("showDebug")}>Debug</button>
         <button className="chip" data-on={showTrail} onClick={() => toggle("showTrail")}>Trail</button>

@@ -186,6 +186,18 @@
   .ribbon-btn { display: flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 600; padding: .32rem .6rem; border-radius: .5rem; background: var(--secondary); border: 1px solid var(--border); transition: all .15s; }
   .ribbon-btn:hover:not(:disabled) { background: var(--foreground); color: var(--card); }
   .ribbon-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .hide-ui-btn { margin-left: auto; flex: none; }
+  .tab-short { display: none; }
+  .hide-ui-btn span { display: inline !important; } /* keep the label even where other ribbon buttons go icon-only */
+  @media (max-width: 480px) { .hide-ui-btn span { font-size: .72rem; } .hide-ui-btn { padding: .3rem .45rem; } }
+  .hide-ui-btn[data-hidden="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 30%, transparent); }
+
+  /* Hide UI: tuck away everything that covers the game. Kept: the ribbon, Play / Back to building,
+     touch controls, the goal display while playing, and end-of-level screens. */
+  html[data-hide-ui="true"] :is(
+    .debug-overlay, .settings-panel, .panel-toggle, .tut-card, .level-label,
+    .builder-toolbar, .builder-legend, .builder-hint, .insp, .builder-level-btn, .play-hud-missing
+  ) { display: none !important; }
   .ribbon-note { position: absolute; top: calc(100% + 10px); left: 0; z-index: 60; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .5rem; background: var(--foreground); color: var(--card); box-shadow: var(--shadow-panel); }
   .ribbon-note[data-ok="false"] { background: oklch(0.55 0.18 25); }
   @media (max-width: 720px) { .ribbon-btn span { display: none; } .app-saveload { padding-right: .6rem; } }
@@ -386,4 +398,18 @@
   @keyframes win-bounce { 50% { transform: translateY(-6px) rotate(-6deg); } }
   @media (prefers-reduced-motion: reduce) { .win-confetti { display: none; } .win-emoji, .win-card { animation: none; } }
   .tool-btn:hover { background: var(--foreground); color: var(--card); }
+}
+
+/* Phones: kept last so these win. The colour key is tucked away (it would sit on the toolbar), the
+   Tour/Level buttons go icon-only, and the goal display sits compactly below Back to building. */
+@media (max-width: 600px) {
+  .tab-long { display: none; }
+  .tab-short { display: inline; }
+  .builder-legend { display: none; }
+  .builder-level-btn .btn-label, .builder-level-btn kbd { display: none; }
+  .builder-level-btn { padding: .55rem .65rem; }
+  .builder-top { gap: .35rem; }
+  .play-hud { top: 70px; max-width: calc(100% - 24px); }
+  .play-hud-pill { font-size: .85rem; padding: .35rem .8rem; gap: .4rem; }
+  .play-hud-goal > span:last-child { display: none; }
 }
