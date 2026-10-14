@@ -22,6 +22,8 @@ export function LevelBuilder() {
   const mode = useLevel((s) => s.mode);
   const run = usePlay((s) => s.run);
   useBuilderKeys();
+  // The builder needs its tools, so it always opens with the UI showing
+  useEffect(() => { useUI.setState({ hideUI: false }); }, []);
   useWarnBeforeLeaving();
   useTouchDetection();
   return (

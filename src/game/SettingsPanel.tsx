@@ -36,11 +36,9 @@ export function SettingsPanel() {
 
   return (
     <>
-      <button className="panel-toggle" data-open={open} onClick={() => toggle("panelOpen")} aria-label="Toggle settings">
-        {open ? "→" : "⚙ Tune"} <kbd>T</kbd>
-      </button>
-      <aside className="settings-panel" data-open={open}>
-        <header className="border-b border-border px-5 pb-4 pt-5">
+      <aside className="settings-panel feel-panel" data-open={open}>
+        <header className="relative border-b border-border px-5 pb-4 pt-5">
+          <button className="feel-close" onClick={(e) => { (e.currentTarget as HTMLElement).blur(); toggle("panelOpen"); }} aria-label="Close Movement Feel" title="Close (T)">×</button>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Inspector</p>
           <h2 className="font-display text-xl font-bold tracking-tight">Movement Feel</h2>
         </header>

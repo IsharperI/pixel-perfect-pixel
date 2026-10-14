@@ -26,7 +26,7 @@ function Welcome() {
           <button className="tut-primary" onClick={start} autoFocus>Start the tutorial</button>
           <button className="tool-btn flex-1" onClick={skip}>Explore on my own</button>
         </div>
-        <p className="text-xs text-muted-foreground">You can open the tutorial any time from the top-left.</p>
+        <p className="text-xs text-muted-foreground">You can open the tutorial any time from the Tutorial button in the top bar.</p>
       </div>
     </div>
   );
@@ -64,7 +64,7 @@ function StepCard() {
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           {step.chapter} · {index + 1}/{STEPS.length}
         </span>
-        <button className="tut-close" onClick={exit} onPointerUp={blurAfter} aria-label="Close tutorial" title="Close tutorial (reopen from the top-left)">×</button>
+        <button className="tut-close" onClick={exit} onPointerUp={blurAfter} aria-label="Close tutorial" title="Close tutorial (reopen from the Tutorial button in the top bar)">×</button>
       </header>
       <h3 className="font-display text-lg font-bold leading-tight tracking-tight">{step.title}</h3>
       <p className="text-sm leading-relaxed">{step.body}</p>

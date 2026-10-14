@@ -198,7 +198,7 @@
   /* Hide UI: tuck away everything that covers the game. Kept: the ribbon, Play / Back to building,
      touch controls, the goal display while playing, and end-of-level screens. */
   html[data-hide-ui="true"] :is(
-    .debug-overlay, .settings-panel, .panel-toggle, .tut-card, .level-label,
+    .debug-overlay, .settings-panel, .panel-toggle, .tut-card, .level-label, .controls-bar,
     .builder-toolbar, .builder-legend, .builder-hint, .insp, .builder-level-btn, .play-hud-missing
   ) { display: none !important; }
   .ribbon-note { position: absolute; top: calc(100% + 10px); left: 0; z-index: 60; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .5rem; background: var(--foreground); color: var(--card); box-shadow: var(--shadow-panel); }
@@ -421,6 +421,37 @@
 @media (max-width: 900px) {
   .graphics-word { display: none; }
 }
+
+/* ---- Character page: window switches in the top bar, controls along the bottom ---- */
+.ribbon-tools { display: flex; align-items: center; gap: .3rem; padding-left: .6rem; margin-left: .3rem; border-left: 1px solid var(--border); height: 100%; }
+.ribbon-btn[data-on="true"] { background: color-mix(in oklch, var(--primary) 16%, var(--card)); border-color: var(--primary); color: var(--primary); }
+.ribbon-btn[data-on="true"]:hover { background: var(--primary); color: var(--primary-foreground); }
+@media (max-width: 1280px) { .app-ribbon:has(.ribbon-tools) .app-ribbon-title { display: none; } }
+.app-ribbon:has(.ribbon-tools) .graphics-word { display: none; }
+.ribbon-left .ribbon-btn { flex: none; white-space: nowrap; }
+@media (max-width: 1000px) { .ribbon-tools .ribbon-btn span { display: none; } }
+/* Phones: tighter buttons; Graphics stays on Auto (the Level Builder still has the switch) */
+@media (max-width: 600px) {
+  .app-ribbon:has(.ribbon-tools) .ribbon-btn { padding: .3rem .4rem; }
+  .app-ribbon:has(.ribbon-tools) :is(.ribbon-left, .app-saveload, .ribbon-tools) { gap: .2rem; }
+  .ribbon-tools { padding-left: .35rem; margin-left: .1rem; }
+  .app-ribbon:has(.ribbon-tools) .graphics-btn { display: none; }
+}
+@media (max-width: 420px) {
+  .app-ribbon:has(.ribbon-tools) { gap: .3rem; padding: 0 .35rem; }
+  .app-ribbon:has(.ribbon-tools) .app-tab { padding: 0 .3rem; font-size: .72rem; }
+  .app-ribbon:has(.ribbon-tools) .ribbon-left { padding-right: .3rem; }
+  .app-ribbon:has(.ribbon-tools) .ribbon-btn { padding: .28rem .32rem; }
+}
+.feel-panel { width: 290px; }
+.feel-close { position: absolute; top: .9rem; right: .9rem; width: 28px; height: 28px; border-radius: 999px; font-size: 1.1rem; line-height: 1; color: var(--muted-foreground); }
+.feel-close:hover { background: var(--muted); color: var(--foreground); }
+.controls-bar { position: absolute; left: 1rem; right: 1rem; bottom: .75rem; z-index: 12; display: flex; justify-content: center; pointer-events: none; }
+.controls-bar > .hud-card { pointer-events: auto; text-align: center; padding: .4rem .9rem; }
+.controls-bar[data-panel="true"] { right: calc(290px + 1.5rem); }
+.controls-bar[data-tutorial="true"] { left: calc(min(360px, 100% - 2rem) + 2rem); }
+@media (max-width: 760px) { .controls-bar[data-touch="true"] { display: none; } }
+@media (max-width: 1200px) { .controls-bar[data-tutorial="true"] { display: none; } } /* the tutorial card covers the controls */
 
 @media (max-width: 600px) {
   .tab-long { display: none; }

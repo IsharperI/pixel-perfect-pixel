@@ -218,7 +218,7 @@ export const STEPS: Step[] = [
   {
     chapter: "Done",
     title: "That's the tour!",
-    body: "You've touched every part of the toolkit. Everything is still here to play with, and you can reopen this tutorial any time from the Tutorial button at the top left.",
+    body: "You've touched every part of the toolkit. Everything is still here to play with, and you can reopen this tutorial any time from the Tutorial button in the top bar.",
   },
 ];
 
@@ -262,6 +262,7 @@ export const useTutorial = create<TutorialState>((set, get) => ({
   startValues: {},
   start_tutorial: () => {
     markSeen();
+    useUI.setState({ hideUI: false }); // the tutorial needs the panels
     // Begin from the Default preset so every step's setup makes sense
     useSettings.getState().load(presetValues(PRESETS[0]!));
     get().goTo(0);
@@ -285,6 +286,7 @@ export const useTutorial = create<TutorialState>((set, get) => ({
   exit: () => set({ status: "off" }),
   // Resume where you left off (or restart if you'd finished)
   reopen: () => {
+    useUI.setState({ hideUI: false });
     const { index } = get();
     if (index >= STEPS.length - 1) get().start_tutorial();
     else {

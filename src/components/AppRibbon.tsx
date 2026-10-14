@@ -9,13 +9,14 @@ import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
  * Top ribbon shared by every page: Save/Load, the app name, and the mode tabs.
  * Pages can swap in their own Save/Load (the Level Builder saves levels).
  */
-export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
+export function AppRibbon({ saveLoad, tools }: { saveLoad?: React.ReactNode; tools?: React.ReactNode } = {}) {
   return (
     <header className="app-ribbon">
       <div className="ribbon-left">
         {saveLoad ?? <SaveLoad />}
         <HideUIButton />
         <GraphicsButton />
+        {tools}
       </div>
       <span className="app-ribbon-title font-display">Platformer Toolkit 3D</span>
       <nav className="app-ribbon-tabs" aria-label="Mode">

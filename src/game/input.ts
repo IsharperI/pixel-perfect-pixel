@@ -83,7 +83,7 @@ export function useInputListeners() {
         input.running = !input.running;
         return;
       }
-      if (e.code === "KeyT" && !e.repeat) { useUI.getState().toggle("panelOpen"); return; }
+      if (e.code === "KeyT" && !e.repeat) { useUI.getState().showOrToggle("panelOpen"); return; }
       if (e.code === "KeyE" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { input.grabPressedAt = performance.now() / 1000; return; }
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys

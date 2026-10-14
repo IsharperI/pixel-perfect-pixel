@@ -254,19 +254,22 @@ type UI = {
   hideUI: boolean; // the Hide UI button: panels and overlays tucked away so you can see the game
   toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost" | "hideUI") => void;
   setTouchMode: (on: boolean) => void;
+  /** Show one window (and bring the UI back if it was hidden), or close it if it's already showing */
+  showOrToggle: (k: "panelOpen" | "showDebug") => void;
 };
 /** Phones and other small screens start with the big panels closed, so you can see the game. */
 const smallScreen = typeof window !== "undefined" && window.innerWidth < 700;
 
 export const useUI = create<UI>((set) => ({
   panelOpen: !smallScreen,
-  showDebug: !smallScreen,
+  showDebug: false,
   hideUI: false,
   showTrail: true,
   showGhost: true,
   touchMode: false,
   setTouchMode: (on) => set({ touchMode: on }),
   toggle: (k) => set((s) => ({ [k]: !s[k] }) as Partial<UI>),
+  showOrToggle: (k) => set((s) => (s.hideUI ? { hideUI: false, [k]: true } : { [k]: !s[k] }) as Partial<UI>),
 }));
 
 /** Mutable live stats written by the player each frame, polled by the HUD. */
