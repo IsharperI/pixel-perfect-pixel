@@ -981,6 +981,8 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     liveStats.speed = hs;
     const at = b.translation(); // the body's centre, for things like collecting stars
     liveStats.x = at.x; liveStats.y = at.y; liveStats.z = at.z;
+    // Next to vines (or on them)? The touch Grab button only shows then
+    liveStats.canGrab = bool(S, "climbing") && (!!s.climb || !!findGrab(at.x, at.y, at.z));
     liveStats.move = s.climb ? "climbing" : s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;

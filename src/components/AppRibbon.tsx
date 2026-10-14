@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Blocks, Eye, EyeOff, FolderOpen, Gauge, Save, SlidersHorizontal } from "lucide-react";
+import { Blocks, Eye, EyeOff, FolderOpen, Gauge, Menu, Save, SlidersHorizontal, X } from "lucide-react";
+import { usePhone } from "../game/usePhone";
 import { useQuality, type Graphics } from "../game/quality";
 import { useSettings, useUI } from "../game/settings";
 import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
@@ -9,13 +10,25 @@ import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
  * Top ribbon shared by every page: Save/Load, the app name, and the mode tabs.
  * Pages can swap in their own Save/Load (the Level Builder saves levels).
  */
-export function AppRibbon({ saveLoad, tools }: { saveLoad?: React.ReactNode; tools?: React.ReactNode } = {}) {
+export function AppRibbon({ saveLoad, tools, menuExtra }: { saveLoad?: React.ReactNode; tools?: React.ReactNode; menuExtra?: React.ReactNode } = {}) {
+  const phone = usePhone();
   return (
     <header className="app-ribbon">
       <div className="ribbon-left">
-        {saveLoad ?? <SaveLoad />}
+        {phone ? (
+          // Phones: Save, Load, Graphics (and extras like the tutorial) tuck into a menu
+          <RibbonMenu>
+            {saveLoad ?? <SaveLoad />}
+            <GraphicsButton />
+            {menuExtra && <div data-close>{menuExtra}</div>}
+          </RibbonMenu>
+        ) : (
+          <>
+            {saveLoad ?? <SaveLoad />}
+          </>
+        )}
         <HideUIButton />
-        <GraphicsButton />
+        {!phone && <GraphicsButton />}
         {tools}
       </div>
       <span className="app-ribbon-title font-display">Platformer Toolkit 3D</span>
@@ -66,6 +79,37 @@ function HideUIButton() {
       {hidden ? <Eye size={15} aria-hidden /> : <EyeOff size={15} aria-hidden />}
       <span>{hidden ? "Show UI" : "Hide UI"}</span>
     </button>
+  );
+}
+
+/** Phones: a ☰ button with the less-used buttons in a drop-down. */
+function RibbonMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState({ top: 0, left: 0 });
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("pointerdown", away, true);
+    return () => window.removeEventListener("pointerdown", away, true);
+  }, [open]);
+  return (
+    <div className="ribbon-menu" ref={wrap}>
+      <button className="ribbon-btn menu-btn" data-on={open} aria-expanded={open} aria-label="Menu: save, load and more"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAt({ top: r.bottom + 10, left: Math.max(8, r.left) }); // fixed, so the scrolling bar can't clip it
+          (e.currentTarget as HTMLElement).blur();
+          setOpen(!open);
+        }}>
+        {open ? <X size={16} aria-hidden /> : <Menu size={16} aria-hidden />}
+      </button>
+      {open && (
+        <div className="ribbon-menu-pop" role="menu" style={at} onClick={(e) => { if ((e.target as HTMLElement).closest("[data-close]")) setOpen(false); }}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 

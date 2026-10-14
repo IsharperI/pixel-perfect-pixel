@@ -1,6 +1,7 @@
 import { Bug, GraduationCap, SlidersHorizontal } from "lucide-react";
 import { useUI } from "./settings";
 import { useTutorial } from "./tutorial";
+import { usePhone } from "./usePhone";
 
 /** Top-bar switches for the Character page's windows: Movement Feel, Debug and the Tutorial. */
 export function CharacterRibbonTools() {
@@ -10,6 +11,18 @@ export function CharacterRibbonTools() {
   const showOrToggle = useUI((u) => u.showOrToggle);
   const tutorialOn = useTutorial((t) => t.status === "active");
   const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur(); // keep Space for jumping
+  const phone = usePhone();
+  if (phone) {
+    // Phones: one button for the bottom drawer (Movement Feel and Debug are tabs in it)
+    return (
+      <div className="ribbon-tools">
+        <button className="ribbon-btn tune-btn" data-on={!hidden && panelOpen} aria-pressed={!hidden && panelOpen}
+          onClick={(e) => { blur(e); showOrToggle("panelOpen"); }} title="Movement Feel and Debug">
+          <SlidersHorizontal size={15} aria-hidden /><span>Tune</span>
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="ribbon-tools">
       <button className="ribbon-btn" data-on={!hidden && panelOpen} aria-pressed={!hidden && panelOpen}
@@ -26,5 +39,14 @@ export function CharacterRibbonTools() {
         <GraduationCap size={14} aria-hidden /><span>Tutorial</span>
       </button>
     </div>
+  );
+}
+
+/** For the phone menu: open (or carry on with) the tutorial. */
+export function TutorialMenuItem() {
+  return (
+    <button className="ribbon-btn" onClick={(e) => { (e.currentTarget as HTMLElement).blur(); useTutorial.getState().reopen(); }}>
+      <GraduationCap size={14} aria-hidden /><span>Tutorial</span>
+    </button>
   );
 }

@@ -2,19 +2,32 @@ import { useEffect, useState } from "react";
 import { liveStats, useSettings, useUI } from "./settings";
 import { useTutorial } from "./tutorial";
 import { input } from "./input";
+import { usePhone } from "./usePhone";
 
 /** The Debug window: live numbers, plus the Trail / Ghost / Walk-Run switches. Opened from the top bar. */
 export function DebugOverlay() {
-  const { showDebug, showTrail, showGhost, touchMode, toggle } = useUI();
+  const showDebug = useUI((u) => u.showDebug);
+  const phone = usePhone();
+  if (!showDebug || phone) return null; // phones show Debug as a tab in the bottom drawer
+  return (
+    <div className="debug-overlay pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
+      <div className="hud-card pointer-events-auto font-mono text-xs leading-relaxed">
+        <DebugContent />
+      </div>
+    </div>
+  );
+}
+
+/** Debug's switches and live numbers. */
+export function DebugContent() {
+  const { showTrail, showGhost, touchMode, toggle } = useUI();
   const runButton = useSettings((v) => v.values["runButton"] === true);
   const [s, setS] = useState({ ...liveStats });
   const [running, setRunning] = useState(input.running);
   useEffect(() => {
-    if (!showDebug) return;
     const id = setInterval(() => { setS({ ...liveStats }); setRunning(input.running); }, 80);
     return () => clearInterval(id);
-  }, [showDebug]);
-  if (!showDebug) return null;
+  }, []);
   const toggleRun = (e: React.MouseEvent) => {
     input.running = !input.running;
     setRunning(input.running);
@@ -23,8 +36,7 @@ export function DebugOverlay() {
   const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();
 
   return (
-    <div className="debug-overlay pointer-events-none absolute left-4 top-4 z-10 flex flex-col gap-2">
-      <div className="hud-card pointer-events-auto font-mono text-xs leading-relaxed">
+    <>
         <div className="mb-1.5 flex items-center gap-2">
           <button className="chip" data-on={showTrail} onClick={(e) => { blur(e); toggle("showTrail"); }} title="Draw a dotted line along your jumps">Trail</button>
           <button className="chip" data-on={showGhost} disabled={!showTrail} onClick={(e) => { blur(e); toggle("showGhost"); }} title="Show your previous jump arc, faded, to compare against the current one">Ghost</button>
@@ -40,8 +52,7 @@ export function DebugOverlay() {
         <Row k="move" v={s.move} hl={s.move !== "—"} />
         <Row k="gravity" v={`${s.gravity.toFixed(1)} u/s²`} />
         <Row k="jump vel" v={`${s.jumpVelocity.toFixed(1)} u/s`} />
-      </div>
-    </div>
+    </>
   );
 }
 

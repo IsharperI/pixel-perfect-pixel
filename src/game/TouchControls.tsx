@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ChevronsDown, Hand } from "lucide-react";
 import { input, resetTouch } from "./input";
-import { useSettings, useUI } from "./settings";
+import { liveStats, useSettings, useUI } from "./settings";
+import { usePhone } from "./usePhone";
 
 const STICK_RADIUS = 60; // px the knob can travel from the centre
 const DEAD_ZONE = 0.12; // ignore tiny thumb wobbles
@@ -18,6 +19,14 @@ export function TouchControls({ panelOpen: panelOverride }: { panelOpen?: boolea
   const settingsOpen = useUI((s) => s.panelOpen && !s.hideUI);
   const panelOpen = panelOverride ?? settingsOpen;
   const climbing = useSettings((s) => s.values["climbing"] === true);
+  const phone = usePhone();
+  // Grab only shows when you're next to vines (or on them)
+  const [canGrab, setCanGrab] = useState(false);
+  useEffect(() => {
+    if (!touchMode || !climbing) return;
+    const id = setInterval(() => setCanGrab(liveStats.canGrab), 120);
+    return () => clearInterval(id);
+  }, [touchMode, climbing]);
   const layer = useRef<HTMLDivElement>(null);
   const base = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
@@ -31,6 +40,8 @@ export function TouchControls({ panelOpen: panelOverride }: { panelOpen?: boolea
   }, [touchMode]);
 
   if (!touchMode) return null;
+  // Phones: the Character page's bottom drawer takes the controls' place while it's open
+  if (phone && panelOverride === undefined && settingsOpen) return null;
 
   const local = (e: React.PointerEvent) => {
     const r = layer.current!.getBoundingClientRect();
@@ -139,7 +150,7 @@ export function TouchControls({ panelOpen: panelOverride }: { panelOpen?: boolea
         <div ref={knob} className="touch-knob" />
       </div>
       <div className="touch-buttons" data-panel-open={panelOpen}>
-        {climbing && (
+        {climbing && canGrab && (
           <button
             className="touch-btn touch-grab"
             aria-label="Grab"

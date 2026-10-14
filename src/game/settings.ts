@@ -252,6 +252,10 @@ type UI = {
   showGhost: boolean;
   touchMode: boolean; // on-screen touch controls showing
   hideUI: boolean; // the Hide UI button: panels and overlays tucked away so you can see the game
+  /** Phones: which tab the bottom drawer shows, and whether it's pulled up tall */
+  drawerTab: "feel" | "debug";
+  drawerTall: boolean;
+  setDrawer: (d: Partial<Pick<UI, "drawerTab" | "drawerTall">>) => void;
   toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost" | "hideUI") => void;
   setTouchMode: (on: boolean) => void;
   /** Show one window (and bring the UI back if it was hidden), or close it if it's already showing */
@@ -264,6 +268,9 @@ export const useUI = create<UI>((set) => ({
   panelOpen: !smallScreen,
   showDebug: false,
   hideUI: false,
+  drawerTab: "feel",
+  drawerTall: false,
+  setDrawer: (d) => set(d),
   showTrail: true,
   showGhost: true,
   touchMode: false,
@@ -273,4 +280,4 @@ export const useUI = create<UI>((set) => ({
 }));
 
 /** Mutable live stats written by the player each frame, polled by the HUD. */
-export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0, move: "—", speedT: 0, x: 0, y: 0, z: 0 };
+export const liveStats = { speed: 0, vy: 0, grounded: false, gravity: 0, jumpVelocity: 0, move: "—", speedT: 0, x: 0, y: 0, z: 0, canGrab: false };

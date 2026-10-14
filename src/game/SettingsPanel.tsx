@@ -3,12 +3,17 @@ import { useHighlighted } from "./tutorial";
 import { events } from "./events";
 import { toCharacterFile, readCharacterFile } from "./characterFile";
 import { SETTINGS, PRESETS, presetValues, matchingPreset, useSettings, useUI, type SettingDef } from "./settings";
+import { usePhone } from "./usePhone";
+import { DebugContent } from "./DebugOverlay";
 
 const CATEGORIES = ["Movement", "Jump", "Moves", "Camera", "Animation", "Juice"] as const;
 
 export function SettingsPanel() {
   const open = useUI((s) => s.panelOpen);
   const toggle = useUI((s) => s.toggle);
+  const tab = useUI((s) => s.drawerTab);
+  const tall = useUI((s) => s.drawerTall);
+  const phone = usePhone();
   const { values, reset, load } = useSettings();
   const fileRef = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -36,12 +41,17 @@ export function SettingsPanel() {
 
   return (
     <>
-      <aside className="settings-panel feel-panel" data-open={open}>
-        <header className="relative border-b border-border px-5 pb-4 pt-5">
-          <button className="feel-close" onClick={(e) => { (e.currentTarget as HTMLElement).blur(); toggle("panelOpen"); }} aria-label="Close Movement Feel" title="Close (T)">×</button>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Inspector</p>
-          <h2 className="font-display text-xl font-bold tracking-tight">Movement Feel</h2>
-        </header>
+      <aside className="settings-panel feel-panel" data-open={open} data-phone={phone} data-tall={phone && tall}>
+        {phone ? <DrawerHead /> : (
+          <header className="relative border-b border-border px-5 pb-4 pt-5">
+            <button className="feel-close" onClick={(e) => { (e.currentTarget as HTMLElement).blur(); toggle("panelOpen"); }} aria-label="Close Movement Feel" title="Close (T)">×</button>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Inspector</p>
+            <h2 className="font-display text-xl font-bold tracking-tight">Movement Feel</h2>
+          </header>
+        )}
+        {phone && tab === "debug" ? (
+          <div className="drawer-debug font-mono text-xs leading-relaxed"><DebugContent /></div>
+        ) : <>
         <Presets onApply={(name) => flash(`Loaded "${name}" preset`)} />
         <div className="feel-list flex-1 overflow-y-auto px-3 py-3">
           {CATEGORIES.map((c) => (
@@ -55,8 +65,46 @@ export function SettingsPanel() {
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importJson(f); e.target.value = ""; }} />
           {note && <p className="col-span-3 text-center text-xs text-muted-foreground">{note}</p>}
         </footer>
+        </>}
       </aside>
     </>
+  );
+}
+
+/**
+ * Phones: the top of the bottom drawer. A handle (tap, or drag up for tall and down
+ * to shrink or close), the tabs, and a close button.
+ */
+function DrawerHead() {
+  const tab = useUI((s) => s.drawerTab);
+  const tall = useUI((s) => s.drawerTall);
+  const setDrawer = useUI((s) => s.setDrawer);
+  const drag = useRef<number | null>(null);
+  const close = () => { useUI.setState({ panelOpen: false, drawerTall: false }); };
+  return (
+    <header className="drawer-head">
+      <button
+        className="drawer-handle"
+        aria-label={tall ? "Make the drawer smaller" : "Make the drawer taller"}
+        onPointerDown={(e) => { drag.current = e.clientY; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerUp={(e) => {
+          const start = drag.current; drag.current = null;
+          if (start === null) return;
+          const dy = e.clientY - start;
+          if (dy < -30) setDrawer({ drawerTall: true });
+          else if (dy > 30) { if (tall) setDrawer({ drawerTall: false }); else close(); }
+          else setDrawer({ drawerTall: !tall });
+        }}
+        onPointerCancel={() => { drag.current = null; }}
+      >
+        <span aria-hidden />
+      </button>
+      <div className="drawer-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === "feel"} data-on={tab === "feel"} onClick={() => setDrawer({ drawerTab: "feel" })}>Movement Feel</button>
+        <button role="tab" aria-selected={tab === "debug"} data-on={tab === "debug"} onClick={() => setDrawer({ drawerTab: "debug" })}>Debug</button>
+        <button className="drawer-close" onClick={close} aria-label="Close">×</button>
+      </div>
+    </header>
   );
 }
 
