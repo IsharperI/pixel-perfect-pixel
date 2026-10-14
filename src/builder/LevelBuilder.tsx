@@ -29,7 +29,7 @@ export function LevelBuilder() {
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
       <AppRibbon saveLoad={<LevelSaveLoad />} />
-      <div className="relative flex-1 overflow-hidden" data-mode={mode}>
+      <div className="relative flex-1 overflow-hidden [overflow:clip]" data-mode={mode}>
         <Canvas shadows dpr={dpr} gl={{ stencil: true }} camera={{ position: [9, 11, 14], fov: 50 }} onContextMenu={(e) => e.preventDefault()}>
           <SceneLighting />
           {mode === "edit" ? <EditorScene /> : <PlayScene key={run} />}

@@ -24,7 +24,7 @@ export function GameCanvas() {
     <div className="fixed inset-0 flex flex-col bg-background">
       <AppRibbon tools={<CharacterRibbonTools />} />
       {/* The game area: overlays position themselves inside this, below the ribbon */}
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden [overflow:clip]">
       {/* stencil: used to tell "level in front of the player" from "the player's own hand in front" for the silhouette */}
       <Canvas shadows dpr={dpr} gl={{ stencil: true }} camera={{ position: [0, 5, 14], fov: 60 }}>
         <SceneLighting />

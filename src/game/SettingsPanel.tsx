@@ -43,7 +43,7 @@ export function SettingsPanel() {
           <h2 className="font-display text-xl font-bold tracking-tight">Movement Feel</h2>
         </header>
         <Presets onApply={(name) => flash(`Loaded "${name}" preset`)} />
-        <div className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="feel-list flex-1 overflow-y-auto px-3 py-3">
           {CATEGORIES.map((c) => (
             <Section key={c} title={c} defs={SETTINGS.filter((s) => s.category === c)} />
           ))}
@@ -116,7 +116,14 @@ function SettingRow({ def }: { def: SettingDef }) {
   const highlighted = hl.includes(def.key);
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (hl[0] === def.key) rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (hl[0] !== def.key) return;
+    // Scroll only the panel's own list. (scrollIntoView would also scroll the page sideways
+    // while the panel is still sliding in from off-screen, shifting the whole game view.)
+    const row = rowRef.current;
+    const list = row?.closest<HTMLElement>(".feel-list");
+    if (!row || !list) return;
+    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    list.scrollTo({ top: top - list.clientHeight / 2 + row.clientHeight / 2, behavior: "smooth" });
   }, [hl, def.key]);
   const isDefault = value === def.default;
   if (!parentOn || def.available === false) return null;
