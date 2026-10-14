@@ -23,6 +23,8 @@ export type TourStep = {
   tryIt?: string;
   glow?: string[];
   done?: (now: TourState, start: TourState) => boolean;
+  /** Different words for touch screens (phones and tablets) */
+  touch?: { body?: string; tryIt?: string };
 };
 
 const count = (blocks: Block[], test: (b: Block) => boolean) => blocks.reduce((n, b) => n + (test(b) ? 1 : 0), 0);
@@ -33,25 +35,29 @@ export const TOUR: TourStep[] = [
     title: "Add a block",
     body: "Levels are built from blocks, like LEGO. The Build tool is already picked, with the Cube.",
     tryIt: "Click the water (or the top or side of a block) to add a cube.",
-    glow: ["tool-build", "piece-cube"],
+    touch: { tryIt: "Make sure Draw is on (bottom right), then tap the water to add a cube." },
+    glow: ["tool-build", "piece-cube", "draw"],
     done: (n, s) => n.blocks.length > s.blocks.length,
   },
   {
     title: "Fill an area",
     body: "Need a big floor? Drag instead of clicking: hold the left mouse button and drag to fill a whole rectangle at once.",
     tryIt: "Drag across the water to fill a floor.",
+    touch: { body: "Need a big floor? With Draw on, drag your finger instead of tapping to fill a whole rectangle at once." },
     glow: ["tool-build"],
     done: (n, s) => n.blocks.length >= s.blocks.length + 4,
   },
   {
     title: "Look around",
     body: "Hold the right mouse button and drag to turn the view. Drag with the middle button (the wheel) to slide it, and scroll to zoom in and out. Made a mistake? Undo is Ctrl+Z.",
+    touch: { body: "Tap Draw to switch it off. Now one finger turns the view, two fingers pinch to zoom and drag to slide it. Tap Draw again when you want to build. Made a mistake? Use the Undo arrow." },
     glow: ["undo"],
   },
   {
     title: "Ramps and colours",
     body: "Each colour means something: sand is solid ground, pink is a slope that changes your speed. Press R to turn a piece before you place it.",
     tryIt: "Pick the Ramp, press R to turn it, and place one.",
+    touch: { body: "Each colour means something: sand is solid ground, pink is a slope that changes your speed. The turn arrow (under the pieces) turns a piece before you place it.", tryIt: "Pick the Ramp, tap the turn arrow, and place one." },
     glow: ["piece-ramp", "rotate"],
     done: (n, s) => count(n.blocks, (b) => b.piece === "ramp" || b.piece === "steep") > count(s.blocks, (b) => b.piece === "ramp" || b.piece === "steep"),
   },
@@ -87,12 +93,14 @@ export const TOUR: TourStep[] = [
     title: "Start, goal and stars",
     body: "Every level has one white Start pad where you begin. Add a checkered Goal flag and some gold Stars, then open Level settings to choose what wins: reach the flag, collect the stars, or both, with or without a clock.",
     tryIt: "Open Level settings (the Level button, or press L).",
+    touch: { tryIt: "Open Level settings (the Level button, top right)." },
     glow: ["piece-start", "piece-goal", "piece-star", "level"],
     done: (n) => n.panelOpen,
   },
   {
     title: "Play it!",
     body: "Press Play to try your level with the character you tuned in Character Modifiers. Fall in the water and you're back at the Start. Press Esc to come back and keep building.",
+    touch: { body: "Press Play to try your level with the character you tuned in Character Modifiers. Use the stick and buttons on screen. Fall in the water and you're back at the Start. Back to building returns you here." },
     tryIt: "Press Play.",
     glow: ["play"],
     done: (n) => n.mode === "play",

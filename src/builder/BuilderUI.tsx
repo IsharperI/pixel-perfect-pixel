@@ -9,7 +9,7 @@ import { BEHAVIOUR_COLOURS, BOUNCE_MAX, BOUNCE_MIN, PIECES, PIECE_ORDER, bounceH
 import { MAX_STOPS } from "./levelStore";
 import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
-import { useSettings } from "../game/settings";
+import { useSettings, useUI } from "../game/settings";
 import { PieceIcon } from "./PieceIcon";
 
 const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
@@ -32,6 +32,7 @@ const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();
 export function BuilderUI() {
   const { tool, piece, rot, mode, past, future, panelOpen, setTool, setPiece, rotate, undo, redo, setMode, setPanelOpen } = useLevel();
   const touring = useTour((t) => t.status === "active");
+  const touchMode = useUI((u) => u.touchMode);
 
   if (mode === "play") {
     return (
@@ -107,6 +108,7 @@ export function BuilderUI() {
       </div>
 
       {tool === "select" && <BlockInspector panelOpen={panelOpen} />}
+      {touchMode && tool !== "select" && <DrawButton />}
       {!panelOpen && <Legend />}
       {!panelOpen && !touring && <div className="builder-hint">{HINTS[tool]}</div>}
     </>
@@ -274,6 +276,39 @@ function WinScreen() {
         {detail && <p className="win-detail">{detail}</p>}
         {actions}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Touch screens: the Draw switch. On, your finger places (or paints, or erases) and the camera holds
+ * still. Off, one finger turns the view, two fingers pinch to zoom and drag to slide it.
+ */
+function DrawButton() {
+  const draw = useLevel((s) => s.draw);
+  const nudgeAt = useLevel((s) => s.drawNudgeAt);
+  const [nudging, setNudging] = useState(false);
+  useEffect(() => {
+    if (nudgeAt < 0) return;
+    setNudging(true);
+    const t = setTimeout(() => setNudging(false), 1800);
+    return () => clearTimeout(t);
+  }, [nudgeAt]);
+  return (
+    <div className="draw-switch">
+      {nudging && !draw && <p className="draw-nudge">Tap Draw to put things down</p>}
+      <button
+        className="draw-btn"
+        data-tour="draw"
+        data-on={draw}
+        data-nudge={nudging && !draw}
+        aria-pressed={draw}
+        onClick={(e) => { blur(e); useLevel.getState().setDraw(!draw); }}
+      >
+        <Pencil size={22} aria-hidden />
+        <span className="draw-btn-label">{draw ? "Draw on" : "Draw off"}</span>
+        <span className="draw-btn-sub">{draw ? "camera still" : "drag to look"}</span>
+      </button>
     </div>
   );
 }

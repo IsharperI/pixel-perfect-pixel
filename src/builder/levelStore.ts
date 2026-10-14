@@ -32,6 +32,10 @@ type LevelState = {
   baselineSig: string;
   /** Is the Level Settings panel open? */
   panelOpen: boolean;
+  /** Touch screens: is Draw on (your finger places/paints/erases, and the camera holds still)? */
+  draw: boolean;
+  /** When a tap was ignored because Draw was off (to point at the Draw button) */
+  drawNudgeAt: number;
 
   setTool: (t: Tool) => void;
   setPiece: (p: PieceId) => void;
@@ -75,6 +79,8 @@ type LevelState = {
   clearLevel: () => void;
   setBestTime: (t: number | null) => void;
   setPanelOpen: (open: boolean) => void;
+  setDraw: (on: boolean) => void;
+  nudgeDraw: () => void;
   /** Open a level (from a save slot or a file). `id` is its save slot, or a new one. */
   loadLevel: (level: LevelData, id?: string) => void;
   /** Start a new, nearly empty level */
@@ -134,9 +140,12 @@ export const useLevel = create<LevelState>((set, get) => {
     bestTime: null,
     baselineSig: levelSig({ name: "My first level", rules: STARTER_RULES, blocks: starter }),
     panelOpen: false,
+    draw: true,
+    drawNudgeAt: -Infinity,
 
-    setTool: (tool) => set({ tool, selectedId: tool === "select" ? get().selectedId : null }),
-    setPiece: (piece) => set({ piece, tool: "build", selectedId: null }),
+    // Picking a tool that puts things down (Build, Vines, Erase) turns Draw on; Move turns it off
+    setTool: (tool) => set({ tool, selectedId: tool === "select" ? get().selectedId : null, draw: tool !== "select" }),
+    setPiece: (piece) => set({ piece, tool: "build", selectedId: null, draw: true }),
 
     rotate: () => {
       const { tool, selectedId, blocks } = get();
@@ -326,6 +335,8 @@ export const useLevel = create<LevelState>((set, get) => {
     },
     setBestTime: (bestTime) => set({ bestTime }),
     setPanelOpen: (panelOpen) => set({ panelOpen }),
+    setDraw: (draw) => set({ draw }),
+    nudgeDraw: () => set({ drawNudgeAt: performance.now() }),
 
     loadLevel: (level, id) => {
       set({

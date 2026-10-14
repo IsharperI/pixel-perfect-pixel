@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
 import { useLevel } from "./levelStore";
+import { useUI } from "../game/settings";
 import { placementFor } from "./placement";
 import { BUILD_LIMIT, PIECES, canPaint, canPlace, centre, footprint, type Block } from "./pieces";
 import { FACE, rotateFaces } from "../game/climb";
@@ -46,9 +47,14 @@ export function EditorScene() {
   const rot = useLevel((s) => s.rot);
   const selectedId = useLevel((s) => s.selectedId);
   const stopIndex = useLevel((s) => s.stopIndex);
+  const drawOn = useLevel((s) => s.draw);
+  const touchMode = useUI((s) => s.touchMode);
+  // On a touch screen with Draw on, the camera holds still so your finger can draw
+  const cameraLocked = touchMode && drawOn && tool !== "select";
   const [ghost, setGhost] = useState<Ghost | null>(null);
   const [eraseId, setEraseId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const busy = useRef(false); // a draw/erase/paint stroke is in progress
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const { camera, gl } = useThree();
 
@@ -107,6 +113,17 @@ export function EditorScene() {
   // Press the left button to start drawing (Build) or erasing (Erase); the drag follows the
   // mouse anywhere on screen and everything is added/removed when the button is let go.
   const onDown = (e: ThreeEvent<PointerEvent>) => {
+    // Touch with Draw off: a finger turns the view instead of drawing. A plain tap reminds you about Draw.
+    if (e.pointerType === "touch" && !drawOn && tool !== "select") {
+      const x0 = e.nativeEvent.clientX, y0 = e.nativeEvent.clientY;
+      const up = (ev: PointerEvent) => {
+        window.removeEventListener("pointerup", up);
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) useLevel.getState().nudgeDraw();
+      };
+      window.addEventListener("pointerup", up);
+      return;
+    }
+    if (busy.current) return; // already drawing with another finger
     if (e.button === 0 && tool === "paint") {
       e.stopPropagation();
       const side = sideFor(e);
@@ -114,7 +131,9 @@ export function EditorScene() {
       // The first side decides: painting a bare side adds vines, a vine-covered one removes them
       painting.current = { add: !((side.block.vines ?? 0) & side.face), masks: new Map() };
       applyPaint(side.block, side.face);
+      busy.current = true;
       const up = () => {
+        busy.current = false;
         window.removeEventListener("pointerup", up);
         const p = painting.current;
         painting.current = null;
@@ -146,6 +165,7 @@ export function EditorScene() {
     setDrag(current);
     setGhost(null);
     setEraseId(null);
+    busy.current = true;
 
     let moved = false;
     const onPointerMove = (ev: PointerEvent) => {
@@ -165,6 +185,7 @@ export function EditorScene() {
       setDrag(current);
     };
     const finish = (commit: boolean) => {
+      busy.current = false;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("keydown", onKey);
@@ -223,6 +244,9 @@ export function EditorScene() {
         maxPolarAngle={Math.PI / 2 - 0.05}
         minDistance={4}
         maxDistance={70}
+        enabled={!cameraLocked}
+        // Touch: one finger turns the view, two fingers pinch to zoom and drag to slide
+        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
         // Building and erasing use the left button to draw, so the view turns with the right button there
         mouseButtons={drawing
           ? { MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE } // no LEFT: it does nothing to the camera

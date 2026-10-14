@@ -11,6 +11,7 @@ import { BuilderUI, startPlay } from "./BuilderUI";
 import { LevelPanel, saveCurrentLevel } from "./LevelPanel";
 import { BuilderTour } from "./BuilderTour";
 import { usePlay } from "./playState";
+import { useUI } from "../game/settings";
 import { levelSig, useLevel, type Tool } from "./levelStore";
 import { PIECE_ORDER } from "./pieces";
 
@@ -20,6 +21,7 @@ export function LevelBuilder() {
   const run = usePlay((s) => s.run);
   useBuilderKeys();
   useWarnBeforeLeaving();
+  useTouchDetection();
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
       <AppRibbon saveLoad={<LevelSaveLoad />} />
@@ -36,6 +38,19 @@ export function LevelBuilder() {
       </div>
     </div>
   );
+}
+
+/** Notice whether you're using a touch screen or a mouse, so the builder can show touch controls (like Draw). */
+function useTouchDetection() {
+  useEffect(() => {
+    const down = (e: PointerEvent) => {
+      const ui = useUI.getState();
+      if (e.pointerType === "touch" && !ui.touchMode) ui.setTouchMode(true);
+      else if (e.pointerType === "mouse" && ui.touchMode) ui.setTouchMode(false);
+    };
+    window.addEventListener("pointerdown", down, true);
+    return () => window.removeEventListener("pointerdown", down, true);
+  }, []);
 }
 
 /** If the level has unsaved changes, ask before the page is refreshed or closed. */

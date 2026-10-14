@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TOUR, tourState, useTour } from "./tour";
+import { useUI } from "../game/settings";
 
 /** The Level Builder tour: a welcome offer on the first visit, then a step card while it runs. */
 export function BuilderTour() {
@@ -37,7 +38,9 @@ function TourCard() {
   const index = useTour((t) => t.index);
   const goTo = useTour((t) => t.goTo);
   const exit = useTour((t) => t.exit);
-  const step = TOUR[index]!;
+  const touch = useUI((u) => u.touchMode);
+  const raw = TOUR[index]!;
+  const step = touch && raw.touch ? { ...raw, ...raw.touch } : raw;
   const [done, setDone] = useState(false);
 
   // Watch for the step's goal a few times a second (once done, it stays done)
@@ -49,7 +52,7 @@ function TourCard() {
       if (check(tourState(), useTour.getState().start)) { setDone(true); clearInterval(id); }
     }, 150);
     return () => clearInterval(id);
-  }, [index, step]);
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps -- re-check per step
 
   // Light up the buttons this step is about
   useEffect(() => {
@@ -61,7 +64,7 @@ function TourCard() {
     apply();
     const id = setInterval(apply, 400); // buttons come and go (Play mode, the inspector)
     return () => { clearInterval(id); document.querySelectorAll("[data-tour-glow]").forEach((el) => el.removeAttribute("data-tour-glow")); };
-  }, [step]);
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const last = index === TOUR.length - 1;
   const ready = done || !step.done;
