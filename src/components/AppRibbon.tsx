@@ -11,7 +11,10 @@ import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
 export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
   return (
     <header className="app-ribbon">
-      {saveLoad ?? <SaveLoad />}
+      <div className="ribbon-left">
+        {saveLoad ?? <SaveLoad />}
+        <HideUIButton />
+      </div>
       <span className="app-ribbon-title font-display">Platformer Toolkit 3D</span>
       <nav className="app-ribbon-tabs" aria-label="Mode">
         <Link to="/" className="app-tab" activeOptions={{ exact: true }} activeProps={{ "data-active": "true" }}>
@@ -25,7 +28,6 @@ export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
           <span className="tab-short">Builder</span>
         </Link>
       </nav>
-      <HideUIButton />
     </header>
   );
 }

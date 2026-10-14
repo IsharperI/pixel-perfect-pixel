@@ -181,12 +181,15 @@
   .app-tab[data-active="true"] { color: var(--foreground); border-bottom-color: var(--primary); }
   @media (max-width: 760px) { .app-ribbon-title { display: none; } }
   @media (max-width: 560px) { .app-ribbon { padding: 0 .5rem; gap: .75rem; } .app-tab { padding: 0 .6rem; } }
-  @media (max-width: 480px) { .app-ribbon { gap: .5rem; } .app-tab svg { display: none; } .app-tab { padding: 0 .45rem; font-size: .75rem; } .app-saveload { padding-right: .45rem; } }
+  @media (max-width: 480px) { .app-ribbon { gap: .5rem; } .app-tab svg { display: none; } .app-tab { padding: 0 .45rem; font-size: .75rem; } .ribbon-left { padding-right: .45rem; } }
   .app-saveload { position: relative; display: flex; align-items: center; gap: .3rem; padding-right: 1rem; margin-right: -.25rem; border-right: 1px solid var(--border); height: 60%; }
   .ribbon-btn { display: flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 600; padding: .32rem .6rem; border-radius: .5rem; background: var(--secondary); border: 1px solid var(--border); transition: all .15s; }
   .ribbon-btn:hover:not(:disabled) { background: var(--foreground); color: var(--card); }
   .ribbon-btn:disabled { opacity: .45; cursor: not-allowed; }
-  .hide-ui-btn { margin-left: auto; flex: none; }
+  .hide-ui-btn { flex: none; }
+  /* Save / Load / Hide UI, with a divider after them */
+  .ribbon-left { display: flex; align-items: center; gap: .3rem; padding-right: 1rem; margin-right: -.25rem; border-right: 1px solid var(--border); height: 60%; }
+  .ribbon-left .app-saveload { padding-right: 0; margin-right: 0; border-right: none; height: auto; }
   .tab-short { display: none; }
   .hide-ui-btn span { display: inline !important; } /* keep the label even where other ribbon buttons go icon-only */
   @media (max-width: 480px) { .hide-ui-btn span { font-size: .72rem; } .hide-ui-btn { padding: .3rem .45rem; } }
@@ -200,7 +203,7 @@
   ) { display: none !important; }
   .ribbon-note { position: absolute; top: calc(100% + 10px); left: 0; z-index: 60; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .5rem; background: var(--foreground); color: var(--card); box-shadow: var(--shadow-panel); }
   .ribbon-note[data-ok="false"] { background: oklch(0.55 0.18 25); }
-  @media (max-width: 720px) { .ribbon-btn span { display: none; } .app-saveload { padding-right: .6rem; } }
+  @media (max-width: 720px) { .ribbon-btn span { display: none; } .ribbon-left { padding-right: .6rem; } }
   .speed-lines { position: absolute; inset: -25%; z-index: 5; pointer-events: none; opacity: 0; will-change: opacity, transform;
     /* White streaks with a faint dark edge, so they read on both bright sky and darker scenery */
     background: repeating-conic-gradient(from 0deg at 50% 50%,
