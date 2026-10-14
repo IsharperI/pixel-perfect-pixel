@@ -11,8 +11,10 @@ import { Tutorial } from "./TutorialOverlay";
 import { AppRibbon } from "../components/AppRibbon";
 import { SpeedLines } from "./SpeedLines";
 import { TouchControls } from "./TouchControls";
+import { useQuality } from "./quality";
 
 export function GameCanvas() {
+  const dpr = useQuality((q) => q.dpr);
   useInputListeners();
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
@@ -20,7 +22,7 @@ export function GameCanvas() {
       {/* The game area: overlays position themselves inside this, below the ribbon */}
       <div className="relative flex-1 overflow-hidden">
       {/* stencil: used to tell "level in front of the player" from "the player's own hand in front" for the silhouette */}
-      <Canvas shadows dpr={[1, 2]} gl={{ stencil: true }} camera={{ position: [0, 5, 14], fov: 60 }}>
+      <Canvas shadows dpr={dpr} gl={{ stencil: true }} camera={{ position: [0, 5, 14], fov: 60 }}>
         <SceneLighting />
         <Suspense fallback={null}>
           <Physics timeStep="vary">

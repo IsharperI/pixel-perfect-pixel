@@ -417,6 +417,11 @@
 
 /* Phones: kept last so these win. The colour key is tucked away (it would sit on the toolbar), the
    Tour/Level buttons go icon-only, and the goal display sits compactly below Back to building. */
+/* Graphics button: drop the word "Graphics:" when space is tight */
+@media (max-width: 900px) {
+  .graphics-word { display: none; }
+}
+
 @media (max-width: 600px) {
   .tab-long { display: none; }
   .tab-short { display: inline; }

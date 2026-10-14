@@ -46,7 +46,7 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   vines: { colour: "#4ade80", edge: "#15803d", name: "Vine green", meaning: "Vines: grab (E) and climb" },
   bounce: { colour: "#22d3ee", edge: "#0e7490", name: "Cyan", meaning: "Bounce pad: springs you up" },
   checkpoint: { colour: "#60a5fa", edge: "#1d4ed8", name: "Blue flag", meaning: "Checkpoint: come back here" },
-  danger: { colour: "#ef4444", edge: "#991b1b", name: "Red", meaning: "Lava: ouch! back to checkpoint" },
+  danger: { colour: "#dc2626", edge: "#7f1d1d", name: "Red", meaning: "Lava: ouch! back to checkpoint" },
 };
 
 /** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */

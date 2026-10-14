@@ -14,9 +14,11 @@ import { usePlay } from "./playState";
 import { useUI } from "../game/settings";
 import { levelSig, useLevel, type Tool } from "./levelStore";
 import { PIECE_ORDER } from "./pieces";
+import { useQuality } from "../game/quality";
 
 /** The Level Builder page: build with blocks, then press Play to try your level. */
 export function LevelBuilder() {
+  const dpr = useQuality((q) => q.dpr);
   const mode = useLevel((s) => s.mode);
   const run = usePlay((s) => s.run);
   useBuilderKeys();
@@ -26,7 +28,7 @@ export function LevelBuilder() {
     <div className="fixed inset-0 flex flex-col bg-background">
       <AppRibbon saveLoad={<LevelSaveLoad />} />
       <div className="relative flex-1 overflow-hidden" data-mode={mode}>
-        <Canvas shadows dpr={[1, 2]} gl={{ stencil: true }} camera={{ position: [9, 11, 14], fov: 50 }} onContextMenu={(e) => e.preventDefault()}>
+        <Canvas shadows dpr={dpr} gl={{ stencil: true }} camera={{ position: [9, 11, 14], fov: 50 }} onContextMenu={(e) => e.preventDefault()}>
           <SceneLighting />
           {mode === "edit" ? <EditorScene /> : <PlayScene key={run} />}
         </Canvas>

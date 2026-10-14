@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Edges } from "@react-three/drei";
+import { useQuality } from "../game/quality";
 import * as THREE from "three";
 import { BEHAVIOUR_COLOURS, PIECES, behaviourOf, centre, type Block } from "./pieces";
 import { checkerTexture, rampGeometry, starGeometry, vineTexture } from "./geometry";
@@ -328,22 +329,86 @@ function Lava({ id, w, h, l, see, colour, edge, fadeRef }: {
   id: string | undefined; w: number; h: number; l: number; see: boolean; colour: string; edge: React.ReactNode;
   fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>;
 }) {
-  const glowMat = useRef<THREE.MeshStandardMaterial>(null);
-  useFrame(({ clock }) => { if (glowMat.current) glowMat.current.emissiveIntensity = 0.55 + Math.sin(clock.elapsedTime * 3) * 0.2; });
+  const extras = useQuality((q) => q.extras);
+  // One shared glowing top and one shared steam shader for every lava block, animated once per frame
+  useFrame(({ clock, size, camera }) => {
+    const t = clock.elapsedTime;
+    const glow = lavaTop();
+    glow.emissiveIntensity = 0.5 + Math.sin(t * 3) * 0.18;
+    const u = steamMaterial().uniforms;
+    u["uTime"]!.value = t;
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 50;
+    u["uScale"]!.value = (size.height * useQuality.getState().dpr) / (2 * Math.tan((fov * Math.PI) / 360));
+  });
   const look = { transparent: see, opacity: see ? 0.5 : 1, depthWrite: !see };
   return (
     <>
       <mesh castShadow={!see} receiveShadow userData={{ blockId: id }}>
         <boxGeometry args={[w, h, l]} />
-        <meshStandardMaterial ref={fadeRef} color={colour} roughness={0.6} emissive="#f97316" emissiveIntensity={see ? 0 : 0.35} {...look} {...(see ? {} : STENCIL_LEVEL)} />
+        <meshStandardMaterial ref={fadeRef} color={colour} roughness={0.7} emissive="#7f1d1d" emissiveIntensity={see ? 0 : 0.3} {...look} {...(see ? {} : STENCIL_LEVEL)} />
         {edge}
       </mesh>
       {!see && (
-        <mesh position={[0, h / 2 + 0.006, 0]} rotation-x={-Math.PI / 2} raycast={noRaycast}>
+        <mesh position={[0, h / 2 + 0.006, 0]} rotation-x={-Math.PI / 2} raycast={noRaycast} material={lavaTop()}>
           <planeGeometry args={[w * 0.96, l * 0.96]} />
-          <meshStandardMaterial ref={glowMat} color="#fb923c" emissive="#fbbf24" emissiveIntensity={0.55} roughness={0.4} />
         </mesh>
       )}
+      {/* Wisps of steam rising off the top */}
+      {!see && extras && <points position={[0, h / 2, 0]} geometry={steamGeometry()} material={steamMaterial()} raycast={noRaycast} renderOrder={5} />}
     </>
   );
+}
+
+let lavaTopMat: THREE.MeshStandardMaterial | null = null;
+/** The bubbling red surface of lava (shared by every lava block). */
+const lavaTop = () => (lavaTopMat ??= new THREE.MeshStandardMaterial({ color: "#c0100a", emissive: "#e00a00", emissiveIntensity: 0.5, roughness: 0.4 }));
+
+const STEAM_PUFFS = 9;
+let steamGeo: THREE.BufferGeometry | null = null;
+/** Steam puffs: each one's (x offset, start delay, z offset). The shader does the rising. */
+function steamGeometry() {
+  if (steamGeo) return steamGeo;
+  const a = new Float32Array(STEAM_PUFFS * 3);
+  for (let i = 0; i < STEAM_PUFFS; i++) {
+    a[i * 3] = (Math.random() - 0.5) * 0.75;
+    a[i * 3 + 1] = i / STEAM_PUFFS + Math.random() * 0.08;
+    a[i * 3 + 2] = (Math.random() - 0.5) * 0.75;
+  }
+  steamGeo = new THREE.BufferGeometry();
+  steamGeo.setAttribute("position", new THREE.BufferAttribute(a, 3));
+  steamGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.8, 0), 1.2);
+  return steamGeo;
+}
+
+let steamMat: THREE.ShaderMaterial | null = null;
+function steamMaterial() {
+  return (steamMat ??= new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 }, uScale: { value: 400 } },
+    vertexShader: /* glsl */ `
+      uniform float uTime;
+      uniform float uScale;
+      varying float vAlpha;
+      void main() {
+        float phase = position.y;
+        float t = fract(uTime * 0.4 + phase);          // 0 → 1: each puff rises, swells and fades
+        vec3 p = vec3(
+          position.x + sin(uTime * 1.3 + phase * 20.0) * 0.12 * t,
+          t * 1.5,
+          position.z + cos(uTime * 1.1 + phase * 13.0) * 0.12 * t);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = (0.25 + 0.6 * t) * uScale / -mv.z;
+        vAlpha = smoothstep(0.0, 0.15, t) * (1.0 - t) * 0.65;
+      }`,
+    fragmentShader: /* glsl */ `
+      varying float vAlpha;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.05, d) * vAlpha;
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(vec3(0.96, 0.95, 0.94), a);
+      }`,
+  }));
 }

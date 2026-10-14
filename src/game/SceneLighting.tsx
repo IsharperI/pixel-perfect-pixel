@@ -1,17 +1,22 @@
 import { Environment, Lightformer } from "@react-three/drei";
+import { isTouchDevice, useQuality } from "./quality";
+import { QualityControl } from "./QualityControl";
 
 /** Sky colour, fog, sun with shadows and soft fill light, shared by every 3D scene. */
 export function SceneLighting() {
+  const shadows = useQuality((q) => q.shadows);
+  const size = isTouchDevice() ? 1024 : 2048; // smaller shadow map on tablets and phones
   return (
     <>
+      <QualityControl />
       <color attach="background" args={["#bfe3ff"]} />
       <fog attach="fog" args={["#bfe3ff", 45, 110]} />
       <hemisphereLight args={["#ffffff", "#a8d5a2", 0.7]} />
       <directionalLight
         position={[18, 30, 12]}
         intensity={1.8}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
+        castShadow={shadows}
+        shadow-mapSize={[size, size]}
         shadow-camera-left={-40}
         shadow-camera-right={40}
         shadow-camera-top={40}

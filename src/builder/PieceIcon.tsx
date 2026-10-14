@@ -63,7 +63,8 @@ export function PieceIcon({ piece, size = 34 }: { piece: PieceId; size?: number 
       {piece === "lava" && (
         <>
           {box(20, 9, 10, 10, 12)}
-          <path d="M14 14 q3 -3 6 0 t6 0" fill="none" stroke="#fde047" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M14 14 q3 -3 6 0 t6 0" fill="none" stroke="#fecaca" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M17 7 q-1.5 -2 0 -4 M23 7 q1.5 -2 0 -4" fill="none" stroke="#cbd5e1" strokeWidth="1.3" strokeLinecap="round" />
         </>
       )}
       {piece === "star" && (

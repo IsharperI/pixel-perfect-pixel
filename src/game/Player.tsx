@@ -7,6 +7,7 @@ import { respawn } from "./respawn";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
+import { useQuality } from "./quality";
 import { updateFades } from "./fade";
 import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit, playBoing } from "./sfx";
 import { TARGETS, homingState, findLockTarget, popTarget } from "./targets";
@@ -55,6 +56,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
   }), []);
   /** Ring of dust at the feet. `speed` = how far it spreads, `count` = how many. */
   const spawnDust = (x: number, y: number, z: number, count: number, speed: number, size: number) => {
+    if (!useQuality.getState().extras) count = Math.ceil(count / 3); // lighter on low graphics
     for (let i = 0; i < count; i++) {
       const k = dust.next; dust.next = (dust.next + 1) % DUST_MAX;
       const a = (i / count) * Math.PI * 2 + Math.random() * 0.6;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Blocks, Eye, EyeOff, FolderOpen, Save, SlidersHorizontal } from "lucide-react";
+import { Blocks, Eye, EyeOff, FolderOpen, Gauge, Save, SlidersHorizontal } from "lucide-react";
+import { useQuality, type Graphics } from "../game/quality";
 import { useSettings, useUI } from "../game/settings";
 import { loadFromBrowser, saveToBrowser } from "../game/characterFile";
 
@@ -14,6 +15,7 @@ export function AppRibbon({ saveLoad }: { saveLoad?: React.ReactNode } = {}) {
       <div className="ribbon-left">
         {saveLoad ?? <SaveLoad />}
         <HideUIButton />
+        <GraphicsButton />
       </div>
       <span className="app-ribbon-title font-display">Platformer Toolkit 3D</span>
       <nav className="app-ribbon-tabs" aria-label="Mode">
@@ -62,6 +64,33 @@ function HideUIButton() {
     >
       {hidden ? <Eye size={15} aria-hidden /> : <EyeOff size={15} aria-hidden />}
       <span>{hidden ? "Show UI" : "Hide UI"}</span>
+    </button>
+  );
+}
+
+const NEXT: Record<Graphics, Graphics> = { auto: "high", high: "low", low: "auto" };
+const GRAPHICS_TIP: Record<Graphics, string> = {
+  auto: "Auto: sharp and shadowed, and turns itself down if the game stutters",
+  high: "High: always full sharpness, shadows and effects",
+  low: "Low: for slower tablets and phones (less sharp, no soft shadows, fewer effects)",
+};
+
+/** Graphics quality: Auto, High or Low (tap to switch). Remembered in this browser. */
+function GraphicsButton() {
+  const g = useQuality((q) => q.graphics);
+  const lowered = useQuality((q) => q.lowered);
+  const set = useQuality((q) => q.setGraphics);
+  const name = g === "auto" ? "Auto" : g === "high" ? "High" : "Low";
+  return (
+    <button
+      className="ribbon-btn graphics-btn"
+      data-graphics={g}
+      onClick={(e) => { (e.currentTarget as HTMLElement).blur(); set(NEXT[g]); }}
+      title={`Graphics: ${GRAPHICS_TIP[g]}${g === "auto" && lowered ? " (turned down right now to keep it smooth)" : ""}. Click to switch.`}
+      aria-label={`Graphics: ${name}. Click to switch.`}
+    >
+      <Gauge size={15} aria-hidden />
+      <span><span className="graphics-word">Graphics: </span>{name}{g === "auto" && lowered ? "↓" : ""}</span>
     </button>
   );
 }
