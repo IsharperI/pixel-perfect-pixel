@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { ConvexHullCollider, CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { BlockMesh } from "./BlockMesh";
 import { Water } from "./Water";
@@ -67,6 +67,16 @@ export function PlayScene() {
   );
 }
 
+/** A ramp's solid shape: the wedge's six corners (low at -z, high at +z, like the mesh). */
+function RampCollider({ block }: { block: Block }) {
+  const [w, h, l] = PIECES[block.piece].size;
+  const pts = useMemo(() => {
+    const x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2, z0 = -l / 2, z1 = l / 2;
+    return new Float32Array([x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1]);
+  }, [w, h, l]);
+  return <ConvexHullCollider args={[pts]} />;
+}
+
 function PlayBlock({ block }: { block: Block }) {
   const fadeId = useId(); // lets the camera fade this block when it's in the way
   const isGoal = block.piece === "goal";
@@ -85,11 +95,12 @@ function PlayBlock({ block }: { block: Block }) {
     // the pole); everything else is a box
     <RigidBody
       type="fixed"
-      colliders={isGoal || isPad || isCheckpoint ? false : PIECES[block.piece].ramp ? "hull" : "cuboid"}
+      colliders={isGoal || isPad || isCheckpoint || PIECES[block.piece].ramp ? false : "cuboid"}
       position={centre(block)}
       rotation={[0, (block.rot * Math.PI) / 2, 0]}
       userData={{ fadeId }}
     >
+      {PIECES[block.piece].ramp && <RampCollider block={block} />}
       {isGoal && <CuboidCollider args={[0.46, 0.1, 0.46]} position={[0, -0.4, 0]} />}
       {isPad && <CuboidCollider args={[0.46, 0.14, 0.46]} position={[0, -0.36, 0]} />}
       {isCheckpoint && <CuboidCollider args={[0.46, 0.08, 0.46]} position={[0, -0.42, 0]} />}
