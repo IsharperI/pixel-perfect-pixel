@@ -92,6 +92,15 @@ export const STEPS: Step[] = [
     done: (_e, v) => num(v, "airControl") >= 0.4,
   },
   {
+    chapter: "Running",
+    title: "Slopes",
+    body: "Max Slope is the steepest ground you can walk up; anything steeper acts like a wall. Past the Slide Angle you slide back down. Slope Momentum makes downhill faster and uphill slower, which is what makes Sonic feel like Sonic.",
+    tryIt: "Try the 30°, 45° and 60° RAMPS (far left). Then change Max Slope and try the steep one again.",
+    setup: { airControl: 0.6, maxSlope: 50, slideSlope: 55 },
+    highlight: ["maxSlope", "slideSlope", "slopeMomentum"],
+    done: (_e, v, v0) => v["maxSlope"] !== v0["maxSlope"] || v["slopeMomentum"] !== v0["slopeMomentum"],
+  },
+  {
     chapter: "Forgiveness",
     title: "Coyote time",
     body: "Players often press jump a moment too late, just after running off an edge. Coyote Time quietly lets that jump happen anyway. It's named after the cartoon coyote who hangs in the air before he notices he's run off the cliff.",
@@ -188,6 +197,15 @@ export const STEPS: Step[] = [
     setup: { float: false, homingAttack: true },
     highlight: ["homingAttack", "homingRange", "homingBounce"],
     done: (e) => e.homingHits >= 2,
+  },
+  {
+    chapter: "Moves",
+    title: "Climbing",
+    body: "Some walls are covered in vines. Walk up to them and press E (or the Grab button) to hold on, then climb up, down and sideways. Climb past the top to pull yourself up, press jump to leap off, or E again to let go.",
+    tryIt: "Climb the VINES wall just right of the start, all the way to the top.",
+    setup: { homingAttack: false, climbing: true },
+    highlight: ["climbing", "climbSpeed"],
+    done: (e) => e.climbs >= 1,
   },
   {
     chapter: "Your turn",

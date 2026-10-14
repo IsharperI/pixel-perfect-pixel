@@ -2,11 +2,12 @@ import { Suspense, useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { carriers, topAt, type Carrier } from "./carriers";
 import { faceCoords, findGrab, vineAt, wallTop, type ClimbFace } from "./climb";
+import { bouncePads, bounceSpeed, padUnder } from "./bounce";
 import { CapsuleCollider, RigidBody, useRapier, type RapierRigidBody, type RapierCollider } from "@react-three/rapier";
 import * as THREE from "three";
 import { useSettings, num, bool, str, deriveJump, liveStats, useUI } from "./settings";
 import { updateFades } from "./fade";
-import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit } from "./sfx";
+import { playJump, playLand, playFlap, playExhale, playSkid, playHoming, playHit, playBoing } from "./sfx";
 import { TARGETS, homingState, findLockTarget, popTarget } from "./targets";
 import { CUSTOM_MODEL_URL, type AnimState } from "./characterModel";
 import { CustomModel, ModelErrorBoundary, useGlbCheck } from "./CustomModel";
@@ -328,7 +329,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         if (s.climb) { s.climb = null; s.mantleTop = null; } // let go
         else if (s.move === "none" || s.move === "float" || s.move === "wall") {
           const f = findGrab(here.x, here.y, here.z);
-          if (f) { s.climb = f; s.move = "none"; s.vel.set(0, 0, 0); s.airJumpsUsed = 0; s.flapsUsed = 0; }
+          if (f) { s.climb = f; s.move = "none"; s.vel.set(0, 0, 0); s.airJumpsUsed = 0; s.flapsUsed = 0; events.climbs++; }
         }
       }
       const f = s.climb;
@@ -584,6 +585,22 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
       s.move = "none";
     }
     s.grounded = groundedNow && s.vel.y <= 0;
+    // Landed on a bounce pad? Spring up (higher if jump is held)
+    if (s.grounded && bouncePads.length) {
+      const pad = padUnder(next.x, next.y - (HALF + RADIUS), next.z);
+      if (pad) {
+        const { gravity: g } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
+        const boosted = mv.jumpHeld;
+        s.vel.y = bounceSpeed(pad.height, g, boosted);
+        s.grounded = false;
+        s.move = "none"; s.jumping = true; s.variableOk = false;
+        s.airJumpsUsed = 0; s.flapsUsed = 0;
+        s.sqV += 12 * num(S, "squashStretch");
+        pad.boingAt = now;
+        events.bounces++;
+        if (bool(S, "sounds")) playBoing(num(S, "soundVolume"), boosted);
+      }
+    }
 
     // ---- tutorial measurements
     if (!s.grounded) s.peakY = Math.max(s.peakY, next.y);

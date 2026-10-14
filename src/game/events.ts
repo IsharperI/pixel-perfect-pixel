@@ -16,6 +16,8 @@ export const events = {
   wallJumps: 0,
   flaps: 0,
   homingHits: 0,
+  bounces: 0, // bounce pad launches
+  climbs: 0, // grabbed onto vines
   presetLoads: 0,
 };
 

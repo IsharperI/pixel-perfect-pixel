@@ -44,7 +44,7 @@ export function DebugOverlay() {
       <div className="hud-card text-xs text-muted-foreground">
         {touchMode
           ? <>Left thumb: move (push all the way to run) · <b>Jump</b> / <b>Crouch</b> buttons · swipe right side to look</>
-          : <><kbd>WASD</kbd> move · <kbd>Z</kbd> walk/run · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · drag to orbit · <kbd>T</kbd> settings</>}
+          : <><kbd>WASD</kbd> move · <kbd>Z</kbd> walk/run · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · <kbd>E</kbd> grab vines · drag to orbit · <kbd>T</kbd> settings</>}
       </div>
     </div>
   );

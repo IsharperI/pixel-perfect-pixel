@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { BEHAVIOUR_COLOURS, PIECES, behaviourOf, centre, type Block } from "./pieces";
 import { checkerTexture, rampGeometry, starGeometry, vineTexture } from "./geometry";
 import { FACE } from "../game/climb";
+import { bouncePads, squish } from "../game/bounce";
 import { registerFade } from "../game/fade";
 
 const noRaycast = () => null;
@@ -86,6 +87,8 @@ export function BlockMesh({
             </>
           )}
         </>
+      ) : piece.behaviour === "bounce" ? (
+        <BouncePad id={block.id} h={h} see={see} colour={colour} edge={edges} selected={selected} fadeRef={mat} />
       ) : piece.behaviour === "goal" ? (
         <GoalFlag id={block.id} h={h} see={see} locked={locked} tint={look === "solid" ? (locked ? "#b6bcc6" : null) : colour} edge={edges} selected={selected} fadeRef={mat} />
       ) : piece.behaviour === "star" ? (
@@ -228,6 +231,47 @@ function Vines({ mask, w, h, l, preview }: { mask: number; w: number; h: number;
           <meshBasicMaterial color={preview.add ? "#22c55e" : "#ef4444"} transparent opacity={0.35} depthWrite={false} polygonOffset polygonOffsetFactor={-4} />
         </mesh>
       ))}
+    </>
+  );
+}
+
+/** A bounce pad: a base, a coiled spring, and a top plate that squishes when it fires. Low enough (0.28) to walk onto. */
+function BouncePad({ id, h, see, colour, edge, selected, fadeRef }: {
+  id: string | undefined; h: number; see: boolean; colour: string; edge: React.ReactNode; selected: boolean;
+  fadeRef: React.RefObject<THREE.MeshStandardMaterial | null>;
+}) {
+  const plate = useRef<THREE.Group>(null);
+  const coil = useRef<THREE.Group>(null);
+  const bottom = -h / 2;
+  useFrame(() => {
+    const pad = id ? bouncePads.find((p) => p.id === id) : undefined;
+    const k = pad ? squish(performance.now() / 1000 - pad.boingAt) : 0;
+    if (plate.current) plate.current.position.y = bottom + 0.24 - k * 0.12;
+    if (coil.current) coil.current.scale.y = 1 - k * 0.8;
+  });
+  const look = { transparent: see, opacity: see ? 0.5 : 1, depthWrite: !see };
+  const glow = { emissive: selected ? "#3b82f6" : "#000000", emissiveIntensity: selected ? 0.35 : 0 };
+  return (
+    <>
+      <mesh position={[0, bottom + 0.04, 0]} castShadow={!see} receiveShadow userData={{ blockId: id }}>
+        <boxGeometry args={[0.92, 0.08, 0.92]} />
+        <meshStandardMaterial ref={fadeRef} color="#475569" roughness={0.6} {...look} {...glow} {...(see ? {} : STENCIL_LEVEL)} />
+      </mesh>
+      <group ref={coil} position={[0, bottom + 0.08, 0]}>
+        {[0.03, 0.08, 0.13].map((y) => (
+          <mesh key={y} position={[0, y, 0]} rotation-x={Math.PI / 2} raycast={noRaycast}>
+            <torusGeometry args={[0.26, 0.028, 8, 20]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.3} {...look} />
+          </mesh>
+        ))}
+      </group>
+      <group ref={plate} position={[0, bottom + 0.24, 0]}>
+        <mesh castShadow={!see} receiveShadow userData={{ blockId: id }}>
+          <boxGeometry args={[0.92, 0.08, 0.92]} />
+          <meshStandardMaterial color={colour} roughness={0.5} {...look} {...glow} {...(see ? {} : STENCIL_LEVEL)} />
+          {edge}
+        </mesh>
+      </group>
     </>
   );
 }

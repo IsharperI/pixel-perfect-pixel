@@ -4,8 +4,8 @@
  * Colour = behaviour: every block's colour tells players what it does.
  */
 
-export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star";
-export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting" | "vines";
+export type PieceId = "cube" | "wide" | "plank" | "ramp" | "steep" | "start" | "goal" | "star" | "bounce";
+export type Behaviour = "solid" | "slope" | "start" | "goal" | "star" | "moving" | "tilting" | "vines" | "bounce";
 
 export type Piece = {
   label: string;
@@ -27,9 +27,10 @@ export const PIECES: Record<PieceId, Piece> = {
   start: { label: "Start", size: [1, 1, 1], behaviour: "start", unique: true },
   goal: { label: "Goal flag", size: [1, 1, 1], behaviour: "goal", unique: true },
   star: { label: "Star", size: [1, 1, 1], behaviour: "star" },
+  bounce: { label: "Bounce pad", size: [1, 1, 1], behaviour: "bounce" },
 };
 
-export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "start", "goal", "star"];
+export const PIECE_ORDER: PieceId[] = ["cube", "wide", "plank", "ramp", "steep", "bounce", "start", "goal", "star"];
 
 /** Colour for each behaviour (and the legend). */
 export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string; name: string; meaning: string }> = {
@@ -41,6 +42,7 @@ export const BEHAVIOUR_COLOURS: Record<Behaviour, { colour: string; edge: string
   moving: { colour: "#fb923c", edge: "#c2410c", name: "Orange", meaning: "Moving platform" },
   tilting: { colour: "#b794f6", edge: "#6d28d9", name: "Purple", meaning: "Tilts when you stand on it" },
   vines: { colour: "#4ade80", edge: "#15803d", name: "Vine green", meaning: "Vines: grab (E) and climb" },
+  bounce: { colour: "#22d3ee", edge: "#0e7490", name: "Cyan", meaning: "Bounce pad: springs you up" },
 };
 
 /** How a moving platform moves. Stop 1 is the block itself; `stops` are the rest, as offsets from it. */
@@ -64,6 +66,8 @@ export type Block = {
   tilt?: { max: number };
   /** Sides covered in climbable vines: bit flags in the block's own frame (see game/climb.ts FACE) */
   vines?: number;
+  /** Bounce pads: how high they launch you, in blocks */
+  bounce?: number;
 };
 
 /** Can vines be painted on this block? (Still, plain blocks: not ramps, moving or tilting ones.) */
@@ -122,6 +126,11 @@ export function spawnPoint(blocks: Block[]): [number, number, number] {
 
 let counter = 0;
 export const newId = () => `b${Date.now().toString(36)}${(counter++).toString(36)}`;
+
+/** Bounce pads: how high they launch you (in blocks): the default, and the slider's range. */
+export const BOUNCE_DEFAULT = 4, BOUNCE_MIN = 2, BOUNCE_MAX = 12;
+/** How high a bounce pad launches you. */
+export const bounceHeight = (b: Pick<Block, "bounce">) => b.bounce ?? BOUNCE_DEFAULT;
 
 /** A small example level so the builder never opens empty. */
 export function starterLevel(): Block[] {

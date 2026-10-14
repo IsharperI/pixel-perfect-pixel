@@ -166,6 +166,11 @@
   .tut-mark { flex: none; width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-size: .7rem; font-weight: 800; background: var(--card); border: 1px solid var(--border); }
   .tut-try[data-done="true"] .tut-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-foreground); }
   .tut-next { font-size: .8rem; font-weight: 700; padding: .5rem; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); color: var(--muted-foreground); transition: all .2s; }
+  .tour-card { left: 224px; bottom: 12px; width: min(350px, calc(100% - 240px)); z-index: 30; gap: .5rem; padding: .85rem 1rem .9rem; }
+  @media (max-width: 700px) { .tour-card { left: 12px; width: calc(100% - 24px); } }
+  .builder-hint[data-tour-hidden="true"] { display: none; }
+  [data-tour-glow="true"] { position: relative; z-index: 1; outline: 3px solid #f59e0b !important; outline-offset: 2px; animation: tour-glow 1.2s ease-in-out infinite; }
+  @keyframes tour-glow { 50% { outline-color: #fde68a; box-shadow: 0 0 0 6px color-mix(in oklch, #f59e0b 35%, transparent); } }
   .tut-next[data-ready="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
   .tool-btn:disabled { opacity: .4; pointer-events: none; }
   .app-ribbon { flex: none; height: 48px; display: flex; align-items: center; gap: 1.25rem; padding: 0 1rem; background: var(--card); color: var(--card-foreground); border-bottom: 1px solid var(--border); z-index: 50; }
@@ -275,6 +280,8 @@
   .tilt-slider input { flex: 1; accent-color: #8b5cf6; }
   .tilt-slider strong { min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; font-size: .85rem; }
   .insp-note[data-drops="true"] b { color: #7c3aed; }
+  .tilt-slider[data-kind="bounce"] input { accent-color: #06b6d4; }
+  .insp-bounce-feel { color: #0e7490; }
   .insp-stopmoving { align-self: flex-start; font-size: .72rem; color: var(--muted-foreground); }
 
   /* Level settings panel */

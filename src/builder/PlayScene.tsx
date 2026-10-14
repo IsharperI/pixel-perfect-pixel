@@ -8,7 +8,8 @@ import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
 import { flagLocked, hasWon, isPlayground, touchesFlag, touchesStar } from "./rules";
 import { saveBestTime, listSavedLevels } from "./levelFile";
-import { PIECES, bounds, canPaint, centre, footprint, spawnPoint, type Block } from "./pieces";
+import { PIECES, bounceHeight, bounds, canPaint, centre, footprint, spawnPoint, type Block } from "./pieces";
+import { bouncePads, type Pad } from "../game/bounce";
 import { boxFaces, climbFaces, findGrab, rotateFaces } from "../game/climb";
 import { Player } from "../game/Player";
 import { useInputListeners } from "../game/input";
@@ -43,17 +44,26 @@ export function PlayScene() {
 function PlayBlock({ block }: { block: Block }) {
   const fadeId = useId(); // lets the camera fade this block when it's in the way
   const isGoal = block.piece === "goal";
+  const isPad = block.piece === "bounce";
+  // Bounce pads: let the player know where they are
+  useEffect(() => {
+    if (!isPad) return;
+    const pad: Pad = { id: block.id, x: block.x + 0.5, z: block.z + 0.5, top: block.y + 0.28, hx: 0.46, hz: 0.46, height: bounceHeight(block), boingAt: -Infinity };
+    bouncePads.push(pad);
+    return () => { const i = bouncePads.indexOf(pad); if (i >= 0) bouncePads.splice(i, 1); };
+  }, [isPad, block]);
   return (
     // Ramps get a collider shaped like the wedge; the flag only has a solid pad (you can run through
     // the pole); everything else is a box
     <RigidBody
       type="fixed"
-      colliders={isGoal ? false : PIECES[block.piece].ramp ? "hull" : "cuboid"}
+      colliders={isGoal || isPad ? false : PIECES[block.piece].ramp ? "hull" : "cuboid"}
       position={centre(block)}
       rotation={[0, (block.rot * Math.PI) / 2, 0]}
       userData={{ fadeId }}
     >
       {isGoal && <CuboidCollider args={[0.46, 0.1, 0.46]} position={[0, -0.4, 0]} />}
+      {isPad && <CuboidCollider args={[0.46, 0.14, 0.46]} position={[0, -0.36, 0]} />}
       {isGoal ? <PlayFlag block={block} fadeId={fadeId} /> : <BlockMesh block={block} fadeId={fadeId} local />}
     </RigidBody>
   );

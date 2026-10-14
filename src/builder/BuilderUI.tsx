@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser, Hammer, MousePointer2, MoveRight, Scale, Sprout, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
+import { Eraser, GraduationCap, Hammer, MousePointer2, MoveRight, Scale, Sprout, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
 import { useLevel, type Tool } from "./levelStore";
 import { usePlay } from "./playState";
+import { useTour } from "./tour";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
-import { BEHAVIOUR_COLOURS, PIECES, PIECE_ORDER, canMove, type Behaviour, type Motion } from "./pieces";
+import { BEHAVIOUR_COLOURS, BOUNCE_MAX, BOUNCE_MIN, PIECES, PIECE_ORDER, bounceHeight, canMove, type Behaviour, type Motion } from "./pieces";
 import { MAX_STOPS } from "./levelStore";
 import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
@@ -30,6 +31,7 @@ const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();
 /** Everything drawn over the 3D view: tools, pieces, Play/Stop, the colour legend and hints. */
 export function BuilderUI() {
   const { tool, piece, rot, mode, past, future, panelOpen, setTool, setPiece, rotate, undo, redo, setMode, setPanelOpen } = useLevel();
+  const touring = useTour((t) => t.status === "active");
 
   if (mode === "play") {
     return (
@@ -41,7 +43,7 @@ export function BuilderUI() {
         </div>
         <PlayHud />
         <WinScreen />
-        <div className="builder-hint">
+        <div className="builder-hint" data-tour-hidden={touring}>
           <kbd>WASD</kbd> move · <kbd>Space</kbd> jump · <kbd>Shift</kbd> crouch · <kbd>Z</kbd> walk/run · <kbd>E</kbd> grab vines · drag to look around
         </div>
       </>
@@ -54,7 +56,7 @@ export function BuilderUI() {
         <p className="builder-heading">Tools</p>
         <div className="builder-tools">
           {TOOLS.map((t) => (
-            <button key={t.id} className="builder-tool" data-on={tool === t.id} onClick={(e) => { blur(e); setTool(t.id); }} title={`${t.label} (${t.key})`}>
+            <button key={t.id} className="builder-tool" data-tour={`tool-${t.id}`} data-on={tool === t.id} onClick={(e) => { blur(e); setTool(t.id); }} title={`${t.label} (${t.key})`}>
               <t.icon size={18} aria-hidden />
               <span>{t.label}</span>
             </button>
@@ -67,6 +69,7 @@ export function BuilderUI() {
             <button
               key={id}
               className="builder-piece"
+              data-tour={`piece-${id}`}
               data-on={tool === "build" && piece === id}
               onClick={(e) => { blur(e); setPiece(id); }}
               title={`${PIECES[id].label} (${i + 1})`}
@@ -78,10 +81,10 @@ export function BuilderUI() {
         </div>
 
         <div className="builder-actions">
-          <button className="builder-action" onClick={(e) => { blur(e); rotate(); }} title="Rotate (R)">
+          <button className="builder-action" data-tour="rotate" onClick={(e) => { blur(e); rotate(); }} title="Rotate (R)">
             <RotateCw size={16} aria-hidden style={{ transform: `rotate(${rot * 90}deg)`, transition: "transform .2s" }} />
           </button>
-          <button className="builder-action" onClick={(e) => { blur(e); undo(); }} disabled={!past.length} title="Undo (Ctrl+Z)">
+          <button className="builder-action" data-tour="undo" onClick={(e) => { blur(e); undo(); }} disabled={!past.length} title="Undo (Ctrl+Z)">
             <Undo2 size={16} aria-hidden />
           </button>
           <button className="builder-action" onClick={(e) => { blur(e); redo(); }} disabled={!future.length} title="Redo (Ctrl+Y)">
@@ -92,17 +95,20 @@ export function BuilderUI() {
       </aside>
 
       <div className="builder-top" data-panel={panelOpen}>
-        <button className="builder-level-btn" data-on={panelOpen} onClick={(e) => { blur(e); setPanelOpen(!panelOpen); }} title="Level settings: goal, saving and opening levels (L)">
+        <button className="builder-level-btn" data-tour="tour" onClick={(e) => { blur(e); useTour.getState().begin(); }} title="Take the Level Builder tour">
+          <GraduationCap size={16} aria-hidden /> Tour
+        </button>
+        <button className="builder-level-btn" data-tour="level" data-on={panelOpen} onClick={(e) => { blur(e); setPanelOpen(!panelOpen); }} title="Level settings: goal, saving and opening levels (L)">
           <Settings2 size={16} aria-hidden /> Level <kbd>L</kbd>
         </button>
-        <button className="builder-play" onClick={(e) => { blur(e); startPlay(); }} title="Play your level">
+        <button className="builder-play" data-tour="play" onClick={(e) => { blur(e); startPlay(); }} title="Play your level">
           <Play size={18} aria-hidden fill="currentColor" /> Play
         </button>
       </div>
 
       {tool === "select" && <BlockInspector panelOpen={panelOpen} />}
       {!panelOpen && <Legend />}
-      {!panelOpen && <div className="builder-hint">{HINTS[tool]}</div>}
+      {!panelOpen && !touring && <div className="builder-hint">{HINTS[tool]}</div>}
     </>
   );
 }
@@ -302,7 +308,9 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
         <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : block.tilt ? `Tilting ${label.toLowerCase()}` : label}</span>
         <button className="insp-x" onClick={(e) => { blur(e); S.select(null); }} aria-label="Deselect"><X size={14} aria-hidden /></button>
       </div>
-      {!canMove(block.piece) ? (
+      {block.piece === "bounce" ? (
+        <BounceSlider id={block.id} height={bounceHeight(block)} />
+      ) : !canMove(block.piece) ? (
         <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move or tilt (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
       ) : block.tilt ? (
         <>
@@ -316,10 +324,10 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
       ) : !m ? (
         <>
           <div className="insp-makes">
-            <button className="insp-make" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
+            <button className="insp-make" data-tour="make-move" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
               <MoveRight size={16} aria-hidden /> Make it move
             </button>
-            <button className="insp-make" data-kind="tilt" onClick={(e) => { blur(e); S.setTilt(block.id, true); }}>
+            <button className="insp-make" data-kind="tilt" data-tour="make-tilt" onClick={(e) => { blur(e); S.setTilt(block.id, true); }}>
               <Scale size={16} aria-hidden /> Make it tilt
             </button>
           </div>
@@ -351,6 +359,32 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
           <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setMotion(block.id, undefined); }}>Stop it moving</button>
         </>
       )}
+    </div>
+  );
+}
+
+/** How high a bounce pad launches you. */
+function BounceSlider({ id, height }: { id: string; height: number }) {
+  const feel = height <= 3 ? "A little hop" : height <= 6 ? "A big boing" : height <= 9 ? "Super bounce" : "To the sky!";
+  return (
+    <div className="insp-row">
+      <span className="insp-label">How high</span>
+      <div className="tilt-slider" data-kind="bounce">
+        <input
+          type="range"
+          min={BOUNCE_MIN}
+          max={BOUNCE_MAX}
+          step={1}
+          value={height}
+          onChange={(e) => useLevel.getState().setBounce(id, Number(e.target.value))}
+          onPointerUp={(e) => (e.currentTarget as HTMLElement).blur()}
+          aria-label="How high it bounces you, in blocks"
+        />
+        <strong>{height}</strong>
+      </div>
+      <p className="insp-note">
+        <b className="insp-bounce-feel">{feel}</b> Launches you {height} blocks up. Hold jump as you land for an extra-high bounce.
+      </p>
     </div>
   );
 }
@@ -436,7 +470,7 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
 
 /** What each colour means. */
 function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "start", "goal", "star"];
+  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "bounce", "start", "goal", "star"];
   return (
     <div className="builder-legend" aria-label="Colour key">
       <p className="builder-heading">Colour key</p>

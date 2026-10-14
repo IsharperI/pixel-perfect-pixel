@@ -5,6 +5,8 @@ import { registerFade } from "./fade";
 import { Targets } from "./Targets";
 import { CHAIN_X, TEST_LEVEL_TARGETS } from "./targets";
 import { Grid, Html } from "@react-three/drei";
+import { FACE, boxFaces, climbFaces } from "./climb";
+import { vineTexture } from "../builder/geometry";
 
 type V3 = [number, number, number];
 
@@ -123,11 +125,34 @@ export function Level() {
       })}
       <Label pos={[-34.5, 6, -4]} text="RAMPS" />
 
+      {/* Vine wall: press E to grab on and climb (its front, facing the start, has vines) */}
+      <VineWall />
+
       {/* Homing attack chain: floating targets rising to a high platform */}
       <Targets list={TEST_LEVEL_TARGETS} />
       {/* Landing just past the last target: the bounce carries you onto it */}
       <Block pos={[CHAIN_X, 10.5, -14]} size={[4, 0.5, 4]} color={colorAt(4)} />
       <Label pos={[CHAIN_X + 2.5, 5, 9]} text="HOMING CHAIN" />
+    </group>
+  );
+}
+
+/** A 3-wide, 5-tall wall right of the start, with climbable vines on its front. */
+function VineWall() {
+  const min = [5.5, 0, 0.5] as const, max = [8.5, 5, 1.5] as const;
+  useEffect(() => {
+    const faces = boxFaces(min, max, FACE.pz);
+    climbFaces.push(...faces);
+    return () => { for (const f of faces) { const i = climbFaces.indexOf(f); if (i >= 0) climbFaces.splice(i, 1); } };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fixed wall
+  return (
+    <group>
+      <Block pos={[7, 2.5, 1]} size={[3, 5, 1]} color="#e9cf9d" />
+      <mesh position={[7, 2.5, 1.51]}>
+        <planeGeometry args={[3, 5]} />
+        <meshStandardMaterial map={vineTexture(3, 5)} transparent alphaTest={0.05} roughness={0.85} />
+      </mesh>
+      <Label pos={[7, 5.8, 1]} text="VINES — press E" />
     </group>
   );
 }

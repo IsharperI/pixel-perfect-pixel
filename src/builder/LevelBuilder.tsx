@@ -8,6 +8,7 @@ import { EditorScene } from "./EditorScene";
 import { PlayScene } from "./PlayScene";
 import { BuilderUI, startPlay } from "./BuilderUI";
 import { LevelPanel, saveCurrentLevel } from "./LevelPanel";
+import { BuilderTour } from "./BuilderTour";
 import { usePlay } from "./playState";
 import { levelSig, useLevel, type Tool } from "./levelStore";
 import { PIECE_ORDER } from "./pieces";
@@ -28,6 +29,7 @@ export function LevelBuilder() {
         </Canvas>
         {mode === "play" && <SpeedLines />}
         <BuilderUI />
+        <BuilderTour />
         {mode === "edit" && <LevelPanel />}
       </div>
     </div>
@@ -94,7 +96,7 @@ function LevelSaveLoad() {
   const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();
   return (
     <div className="app-saveload">
-      <button className="ribbon-btn" onClick={(e) => { blur(e); const ok = saveCurrentLevel(); flash(ok ? `Saved "${useLevel.getState().name}"` : "Couldn't save in this browser", ok); }} title="Save this level in this browser">
+      <button className="ribbon-btn" data-tour="save" onClick={(e) => { blur(e); const ok = saveCurrentLevel(); flash(ok ? `Saved "${useLevel.getState().name}"` : "Couldn't save in this browser", ok); }} title="Save this level in this browser">
         <Save size={14} aria-hidden /><span>Save</span>
       </button>
       <button

@@ -45,6 +45,14 @@ export function PieceIcon({ piece, size = 34 }: { piece: PieceId; size?: number 
           <path d="M14 5 L32 7 L32 18 L14 16 Z" fill="url(#pi-check)" stroke="#1f2937" strokeWidth="1" strokeLinejoin="round" />
         </>
       )}
+      {piece === "bounce" && (
+        <>
+          <path d="M6 30 L20 23 L34 30 L20 37 Z" fill="#64748b" stroke="#334155" strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M14 28 q6 -3 12 0 M14 24 q6 -3 12 0 M14 20 q6 -3 12 0" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+          <path d="M6 16 L20 9 L34 16 L20 23 Z" fill={top} stroke={line} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M6 16 L6 19 L20 26 L34 19 L34 16" fill={front} stroke={line} strokeWidth="1.2" strokeLinejoin="round" />
+        </>
+      )}
       {piece === "star" && (
         <path
           d="M20 5 L24.1 14.4 L34.3 15.4 L26.6 22.2 L28.8 32.2 L20 27 L11.2 32.2 L13.4 22.2 L5.7 15.4 L15.9 14.4 Z"

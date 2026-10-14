@@ -130,7 +130,7 @@ export function playExhale(volume: number) {
 // Any audio file dropped into src/game/sounds/ named after a sound (jump, land,
 // skid, flap, exhale) replaces the generated version. Found automatically at
 // build time, so there's nothing to register. See src/game/sounds/README.md.
-export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win" | "timeup" | "tick";
+export type SoundName = "jump" | "land" | "skid" | "flap" | "exhale" | "homing" | "hit" | "star" | "win" | "timeup" | "tick" | "bounce";
 const FILES = import.meta.glob("./sounds/*.{mp3,ogg,wav,m4a}", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 const CUSTOM_URLS: Partial<Record<SoundName, string>> = {};
 for (const [path, url] of Object.entries(FILES)) {
@@ -353,4 +353,28 @@ export function playTimeUp(volume: number) {
     o.start(t + at!);
     o.stop(t + at! + 0.45);
   });
+}
+
+/** A springy "boing": a quick rising wobble. Bigger when boosted. */
+export function playBoing(volume: number, boosted = false) {
+  const a = audio();
+  if (!a || volume <= 0) return;
+  if (playCustom("bounce", 0.6 * volume, boosted ? 1.15 : 1)) return;
+  const t = a.currentTime;
+  const o = a.createOscillator();
+  const lfo = a.createOscillator();
+  const lfoGain = a.createGain();
+  const g = a.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(180, t);
+  o.frequency.exponentialRampToValueAtTime(boosted ? 900 : 620, t + 0.28);
+  lfo.frequency.value = 26; // the wobble
+  lfoGain.gain.value = 40;
+  lfo.connect(lfoGain).connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.25 * volume, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+  o.connect(g).connect(a.destination);
+  o.start(t); lfo.start(t);
+  o.stop(t + 0.4); lfo.stop(t + 0.4);
 }

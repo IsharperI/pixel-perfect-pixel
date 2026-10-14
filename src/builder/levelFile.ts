@@ -4,7 +4,7 @@
  *   { format: "platformer-toolkit-3d/level", version: 2, name, rules, bestTime, blocks: [...] }
  * Version 1 files (a single `goal` instead of `rules`) still open.
  */
-import { PIECES, canMove, canPlace, newId, type Block, type PieceId } from "./pieces";
+import { BOUNCE_MAX, BOUNCE_MIN, PIECES, canMove, canPlace, newId, type Block, type PieceId } from "./pieces";
 import { readMotion } from "./motion";
 import { readTilt } from "./tilt";
 import { readRules, rulesFromOldGoal, type Rules } from "./rules";
@@ -32,7 +32,9 @@ export function toLevelFile(level: LevelData) {
     rules: level.rules,
     bestTime: level.bestTime,
     savedAt: new Date().toISOString(),
-    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt, vines }) => ({ piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}) })),
+    blocks: level.blocks.map(({ piece, x, y, z, rot, move, tilt, vines, bounce }) => ({
+      piece, x, y, z, rot, ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}),
+    })),
   };
 }
 
@@ -63,7 +65,9 @@ export function readLevelFile(data: unknown): LevelData | null {
     const tilt = !move && canMove(b.piece) ? readTilt(r["tilt"]) : undefined;
     const v = r["vines"];
     const vines = !move && !tilt && PIECES[b.piece].behaviour === "solid" && isInt(v) && v > 0 && v < 16 ? v : 0;
-    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}) });
+    const bh = r["bounce"];
+    const bounce = b.piece === "bounce" && typeof bh === "number" && Number.isFinite(bh) ? Math.min(BOUNCE_MAX, Math.max(BOUNCE_MIN, Math.round(bh))) : 0;
+    blocks.push({ ...b, id: newId(), ...(move ? { move } : {}), ...(tilt ? { tilt } : {}), ...(vines ? { vines } : {}), ...(bounce ? { bounce } : {}) });
   }
 
   const name = typeof o["name"] === "string" && o["name"].trim() ? o["name"].trim().slice(0, 40) : "My level";
