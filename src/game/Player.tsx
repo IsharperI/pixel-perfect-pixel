@@ -82,6 +82,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     lastPos: spawnAt.clone(), // player position last frame, for the leash camera
     riding: null as Carrier | null, // the moving platform we're standing on, if any
     platSlide: 0, // speed sliding down a steeply tipped platform
+    slopeSlide: 0, slideDX: 0, slideDZ: 0, // speed (and downhill direction) sliding down ground steeper than the Slide Angle
     camLen: 8, // current camera distance after Push In obstruction
     sq: 0, sqV: 0, // squash & stretch spring: 0 = normal, + = stretched, - = squashed
     bump: 0, bumpV: 0, // landing camera-dip spring
@@ -533,6 +534,27 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
         tmp.v.y = (-(s.vel.x * groundN.x + s.vel.z * groundN.z) / groundN.y) * dt - 0.01;
       }
     }
+    // Ground steeper than the Slide Angle: slide down it, picking up speed the steeper it is,
+    // and keep that speed when you run off the bottom
+    let slidingNow = false;
+    if (groundN && s.grounded && !climbVel && groundN.y > 0.05) {
+      const h = Math.hypot(groundN.x, groundN.z);
+      const deg = (Math.acos(Math.min(groundN.y, 1)) * 180) / Math.PI;
+      if (h > 0.05 && deg >= num(S, "slideSlope")) {
+        const { gravity } = deriveJump(num(S, "jumpHeight"), num(S, "timeToApex"));
+        s.slopeSlide = Math.min(s.slopeSlide + gravity * h * 0.6 * dt, num(S, "maxFallSpeed"));
+        s.slideDX = groundN.x / h; s.slideDZ = groundN.z / h;
+        const d = s.slopeSlide * dt;
+        tmp.v.x += s.slideDX * d; tmp.v.z += s.slideDZ * d;
+        tmp.v.y -= (d * h) / groundN.y + 0.01; // follow the slope down
+        slidingNow = true;
+      }
+    }
+    if (!slidingNow && s.slopeSlide > 0) {
+      s.vel.x += s.slideDX * s.slopeSlide * 0.7;
+      s.vel.z += s.slideDZ * s.slopeSlide * 0.7;
+      s.slopeSlide = 0;
+    }
     // Riding a moving platform: its movement is added to ours (sideways through the collision
     // check, so walls still stop us; up/down straight on). Moving platforms are left out of the
     // physics engine's character collisions and handled by simple box rules below (see carriers.ts).
@@ -983,7 +1005,7 @@ export function Player({ spawn, fallLimit = -25 }: { spawn?: [number, number, nu
     liveStats.x = at.x; liveStats.y = at.y; liveStats.z = at.z;
     // Next to vines (or on them)? The touch Grab button only shows then
     liveStats.canGrab = bool(S, "climbing") && (!!s.climb || !!findGrab(at.x, at.y, at.z));
-    liveStats.move = s.climb ? "climbing" : s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
+    liveStats.move = s.climb ? "climbing" : s.slopeSlide > 0 ? "sliding" : s.move === "float" ? `float (${Math.max(0, num(S, "floatFlaps") - s.flapsUsed)} flaps left)` : s.move === "none" ? (crouching ? "crouch" : s.airJumpsUsed > 0 ? `air jump ${s.airJumpsUsed}` : "—") : s.move === "long" ? "long jump" : s.move === "stall" || s.move === "pound" ? "ground pound" : s.move === "homing" ? "homing attack" : "wall jump";
     liveStats.vy = s.vel.y;
     liveStats.grounded = s.grounded;
     liveStats.gravity = gravity;
