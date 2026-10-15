@@ -548,3 +548,12 @@
   .dock-caption { font-size: .68rem; padding: .25rem .65rem; }
   .draw-switch { bottom: calc(var(--dock-h, 90px) + 18px); }
 }
+
+/* ---- Level Builder: Turn / Move / Copy / Delete on the selected block ---- */
+.insp-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.insp-action { display: grid; justify-items: center; gap: 2px; padding: .45rem .2rem .4rem; border-radius: .7rem; font-size: .7rem; font-weight: 700; background: var(--secondary); border: 2px solid transparent; color: var(--foreground); transition: all .15s; }
+.insp-action:hover:not(:disabled) { background: color-mix(in oklch, var(--primary) 10%, var(--secondary)); transform: translateY(-1px); }
+.insp-action[data-on="true"] { border-color: var(--primary); background: color-mix(in oklch, var(--primary) 14%, var(--card)); }
+.insp-action[data-danger]:hover { color: var(--destructive); background: oklch(0.97 0.03 25); }
+.insp-action:disabled { opacity: .4; cursor: not-allowed; }
+.insp-help b.ax-r { color: #dc2626; } .insp-help b.ax-b { color: #2563eb; } .insp-help b.ax-g { color: #16a34a; }

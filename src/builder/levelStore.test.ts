@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useLevel } from "./levelStore";
+import { DEFAULT_RULES } from "./rules";
 
 const S = () => useLevel.getState();
 
@@ -130,5 +131,22 @@ describe("level editor store", () => {
     S().remove(id);
     expect(S().blocks).toHaveLength(0);
     expect(S().selectedId).toBeNull();
+  });
+});
+
+describe("copying a block", () => {
+  it("puts a copy beside it, selects it, and keeps its settings", () => {
+    const L = useLevel.getState();
+    L.loadLevel({ name: "t", rules: DEFAULT_RULES, bestTime: null, blocks: [
+      { id: "s", piece: "start", x: 0, y: 0, z: 0, rot: 0 },
+      { id: "p", piece: "bounce", x: 3, y: 0, z: 3, rot: 1, bounce: 7 },
+    ] });
+    expect(useLevel.getState().duplicate("p")).toBe(true);
+    const S = useLevel.getState();
+    const copy = S.blocks.find((b) => b.id === S.selectedId)!;
+    expect(copy.id).not.toBe("p");
+    expect([copy.piece, copy.rot, copy.bounce, copy.y]).toEqual(["bounce", 1, 7, 0]);
+    expect(Math.abs(copy.x - 3) + Math.abs(copy.z - 3)).toBe(1);
+    expect(useLevel.getState().duplicate("s")).toBe(false); // only one Start
   });
 });

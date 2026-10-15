@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { GraduationCap, MoveRight, Scale, Pencil, Play, Plus, RotateCcw, Settings2, X } from "lucide-react";
+import { Copy, GraduationCap, Move, MoveRight, Pencil, Play, Plus, RotateCcw, RotateCw, Scale, Settings2, Trash2, X } from "lucide-react";
 import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
 import { useTour } from "./tour";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
-import { BOUNCE_MAX, BOUNCE_MIN, PIECES, bounceHeight, canMove, type Motion } from "./pieces";
+import { BOUNCE_MAX, BOUNCE_MIN, PIECES, bounceHeight, canMove, type Motion, type Block } from "./pieces";
 import { MAX_STOPS } from "./levelStore";
 import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
@@ -273,6 +273,36 @@ function Choice<T extends string | number | boolean>({ label, value, options, on
   );
 }
 
+/** Turn, Move, Copy and Delete for the selected block. */
+function BlockActions({ block }: { block: Block }) {
+  const [moveHelp, setMoveHelp] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => { setMoveHelp(false); setNote(null); }, [block.id]);
+  const S = useLevel.getState();
+  const unique = !!PIECES[block.piece].unique;
+  return (
+    <>
+      <div className="insp-actions">
+        <button className="insp-action" data-tour="sel-turn" onClick={(e) => { blur(e); S.rotate(); }} title="Turn it a quarter (R)">
+          <RotateCw size={17} aria-hidden /> Turn
+        </button>
+        <button className="insp-action" data-on={moveHelp} data-tour="sel-move" onClick={(e) => { blur(e); setMoveHelp(!moveHelp); }} title="How to move it">
+          <Move size={17} aria-hidden /> Move
+        </button>
+        <button className="insp-action" disabled={unique} onClick={(e) => { blur(e); if (!S.duplicate(block.id)) setNote("No room for a copy right next to it."); }}
+          title={unique ? "There can only be one of these" : "Put a copy right next to it"}>
+          <Copy size={17} aria-hidden /> Copy
+        </button>
+        <button className="insp-action" data-danger onClick={(e) => { blur(e); S.remove(block.id); }} title="Remove it (Delete)">
+          <Trash2 size={17} aria-hidden /> Delete
+        </button>
+      </div>
+      {moveHelp && <p className="insp-note insp-help">Drag the arrows on the block: <b className="ax-r">red</b> and <b className="ax-b">blue</b> slide it along the ground, <b className="ax-g">green</b> lifts it up so it floats.</p>}
+      {note && <p className="insp-note" style={{ color: "var(--destructive)" }}>{note}</p>}
+    </>
+  );
+}
+
 /** Settings for the selected block: make it move, its stops, speed, waiting, and how it starts and ends. */
 function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
   const block = useLevel((s) => s.blocks.find((b) => b.id === s.selectedId) ?? null);
@@ -289,12 +319,13 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
         <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : block.tilt ? `Tilting ${label.toLowerCase()}` : label}</span>
         <button className="insp-x" onClick={(e) => { blur(e); S.select(null); }} aria-label="Deselect"><X size={14} aria-hidden /></button>
       </div>
+      <BlockActions block={block} />
       {block.piece === "bounce" ? (
         <BounceSlider id={block.id} height={bounceHeight(block)} />
       ) : block.piece === "star" ? (
         <HomingToggle id={block.id} on={!!block.homing} />
       ) : !canMove(block.piece) ? (
-        <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't move or tilt (yet)." : "This piece stays put."} Drag the arrows to move it around.</p>
+        <p className="insp-note">{PIECES[block.piece].ramp ? "Ramps can't be moving or tilting platforms (yet)." : "This piece stays put (it can't be a moving or tilting platform)."}</p>
       ) : block.tilt ? (
         <>
           <p className="insp-note">
@@ -302,16 +333,16 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
             The pivot is in the middle.
           </p>
           <TiltSlider id={block.id} max={block.tilt.max} />
-          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setTilt(block.id, false); }}>Stop it tilting</button>
+          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setTilt(block.id, false); }}>Stop tilting</button>
         </>
       ) : !m ? (
         <>
           <div className="insp-makes">
             <button className="insp-make" data-tour="make-move" onClick={(e) => { blur(e); S.setMotion(block.id, defaultMotion()); }}>
-              <MoveRight size={16} aria-hidden /> Make it move
+              <MoveRight size={16} aria-hidden /> Moving platform
             </button>
             <button className="insp-make" data-kind="tilt" data-tour="make-tilt" onClick={(e) => { blur(e); S.setTilt(block.id, true); }}>
-              <Scale size={16} aria-hidden /> Make it tilt
+              <Scale size={16} aria-hidden /> Tilting platform
             </button>
           </div>
           <p className="insp-note">Moving platforms turn orange and travel between stops you place. Tilting ones turn purple and tip like a seesaw when you stand on them.</p>

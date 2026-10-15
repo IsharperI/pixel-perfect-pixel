@@ -26,9 +26,8 @@ type Category = { id: string; label: string; icon: typeof Boxes; items: Item[] }
 export const CATEGORIES: Category[] = [
   {
     id: "tools", label: "Tools", icon: Wrench, items: [
-      { kind: "tool", id: "select", label: "Move", key: "V", tip: "Click a block to move it (green arrow = up), or make it move or tilt" },
+      { kind: "tool", id: "select", label: "Select", key: "V", tip: "Click a block to turn, move, copy or delete it, or make it a moving or tilting platform" },
       { kind: "tool", id: "erase", label: "Erase", key: "E", tip: "Click a block to remove it, or drag to clear an area" },
-      { kind: "action", id: "rotate", label: "Turn", tip: "Turn the piece before you place it (R)" },
       { kind: "action", id: "undo", label: "Undo", tip: "Undo the last change (Ctrl+Z)" },
       { kind: "action", id: "redo", label: "Redo", tip: "Redo it again (Ctrl+Y)" },
       { kind: "action", id: "clear", label: "Clear", tip: "Remove everything and start again" },

@@ -43,6 +43,8 @@ type LevelState = {
   select: (id: string | null) => void;
   place: (b: Omit<Block, "id">) => boolean;
   remove: (id: string) => void;
+  /** Put a copy of a block right next to it (and select the copy). False if there's no room, or it's a one-only piece. */
+  duplicate: (id: string) => boolean;
   /** Place several pieces as one undo step (drag to draw). Returns how many went in. */
   placeMany: (list: Omit<Block, "id">[]) => number;
   /** Remove several blocks as one undo step (drag to erase). */
@@ -173,6 +175,25 @@ export const useLevel = create<LevelState>((set, get) => {
       const kept = PIECES[b.piece].unique ? blocks.filter((x) => x.piece !== b.piece) : blocks;
       commit([...kept, { ...b, id: newId() }]);
       return true;
+    },
+
+    duplicate: (id) => {
+      const { blocks } = get();
+      const b = blocks.find((x) => x.id === id);
+      if (!b || PIECES[b.piece].unique) return false;
+      const { min, max } = bounds(b);
+      const [fx, h, fz] = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+      // Beside it (each side in turn), or else on top
+      for (const [dx, dy, dz] of [[fx, 0, 0], [-fx, 0, 0], [0, 0, fz], [0, 0, -fz], [0, h, 0]] as const) {
+        const { id: _, ...rest } = b;
+        const copy = { ...rest, x: b.x + dx, y: b.y + dy, z: b.z + dz };
+        if (!canPlace(copy, blocks)) continue;
+        const nid = newId();
+        commit([...blocks, { ...copy, id: nid }]);
+        set({ selectedId: nid, stopIndex: 0 });
+        return true;
+      }
+      return false;
     },
 
     remove: (id) => {
