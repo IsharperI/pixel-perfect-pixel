@@ -26,6 +26,9 @@ type Drag =
   | { kind: "build"; start: Omit<Block, "id">; planeY: number; list: Omit<Block, "id">[] }
   | { kind: "erase"; ax: number; az: number; layer: number; planeY: number; firstId: string | null; rect: ReturnType<typeof cellRect>; ids: string[] };
 
+/** Touch points currently on the screen (to tell a pinch from drawing). */
+const touches = new Set<number>();
+
 // How far (in pixels) the mouse must move before a press counts as a drag
 const DRAG_START = 4;
 
@@ -50,7 +53,22 @@ export function EditorScene() {
   const drawOn = useLevel((s) => s.draw);
   const touchMode = useUI((s) => s.touchMode);
   // On a touch screen with Draw on, the camera holds still so your finger can draw
-  const cameraLocked = touchMode && drawOn && tool !== "select";
+  // (one finger draws; two fingers still pinch to zoom and slide the view)
+  const drawingByTouch = touchMode && drawOn && tool !== "select";
+  // Fingers on the screen right now: a second finger means a pinch, not drawing
+  useEffect(() => {
+    const down = (e: PointerEvent) => { if (e.pointerType === "touch") touches.add(e.pointerId); };
+    const up = (e: PointerEvent) => touches.delete(e.pointerId);
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+      touches.clear();
+    };
+  }, []);
   const [ghost, setGhost] = useState<Ghost | null>(null);
   const [eraseId, setEraseId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -124,6 +142,7 @@ export function EditorScene() {
       return;
     }
     if (busy.current) return; // already drawing with another finger
+    if (e.pointerType === "touch" && touches.size > 1) return; // a pinch, not drawing
     if (e.button === 0 && tool === "paint") {
       e.stopPropagation();
       const side = sideFor(e);
@@ -132,15 +151,21 @@ export function EditorScene() {
       painting.current = { add: !((side.block.vines ?? 0) & side.face), masks: new Map() };
       applyPaint(side.block, side.face);
       busy.current = true;
-      const up = () => {
+      const first = e.pointerId;
+      const end = (keep: boolean) => {
         busy.current = false;
         window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointerdown", second, true);
         const p = painting.current;
         painting.current = null;
-        if (p?.masks.size) useLevel.getState().paintVines(p.masks);
+        if (keep && p?.masks.size) useLevel.getState().paintVines(p.masks);
         setPending(null);
       };
+      const up = () => end(true);
+      // A second finger: it's a pinch, so forget this stroke
+      const second = (ev: PointerEvent) => { if (ev.pointerType === "touch" && ev.pointerId !== first) end(false); };
       window.addEventListener("pointerup", up);
+      window.addEventListener("pointerdown", second, true);
       return;
     }
     if (e.button !== 0 || (tool !== "build" && tool !== "erase")) return;
@@ -188,7 +213,8 @@ export function EditorScene() {
       busy.current = false;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onSecond, true);
       setDrag(null);
       if (!commit) return;
       const S = useLevel.getState();
@@ -197,6 +223,10 @@ export function EditorScene() {
     };
     const onUp = (ev: PointerEvent) => { if (ev.button === 0) finish(true); };
     const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") { ev.stopPropagation(); finish(false); } };
+    // A second finger: it's a pinch, so nothing gets placed or erased
+    const firstId = e.pointerId;
+    const onSecond = (ev: PointerEvent) => { if (ev.pointerType === "touch" && ev.pointerId !== firstId) finish(false); };
+    window.addEventListener("pointerdown", onSecond, true);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("keydown", onKey, true);
@@ -244,9 +274,8 @@ export function EditorScene() {
         maxPolarAngle={Math.PI / 2 - 0.05}
         minDistance={4}
         maxDistance={70}
-        enabled={!cameraLocked}
-        // Touch: one finger turns the view, two fingers pinch to zoom and drag to slide
-        touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
+        // Touch: one finger turns the view (or draws, with Draw on), two fingers pinch to zoom and drag to slide
+        touches={{ ONE: drawingByTouch ? (-1 as THREE.TOUCH) : THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }}
         // Building and erasing use the left button to draw, so the view turns with the right button there
         mouseButtons={drawing
           ? { MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE } // no LEFT: it does nothing to the camera

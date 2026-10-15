@@ -15,7 +15,7 @@ import { usePlay } from "./playState";
 import { useUI } from "../game/settings";
 import { levelSig, useLevel, type Tool } from "./levelStore";
 import { PIECE_ORDER } from "./pieces";
-import { useQuality } from "../game/quality";
+import { isTouchDevice, useQuality } from "../game/quality";
 import { CameraLift } from "../game/CameraLift";
 
 /** The Level Builder page: build with blocks, then press Play to try your level. */
@@ -25,7 +25,12 @@ export function LevelBuilder() {
   const run = usePlay((s) => s.run);
   useBuilderKeys();
   // The builder needs its tools, so it always opens with the UI showing
-  useEffect(() => { useUI.setState({ hideUI: false }); }, []);
+  useEffect(() => {
+    useUI.setState({ hideUI: false });
+    // Touch screens open on Select, with Draw off, so a first pinch or swipe can't place blocks.
+    // (Picking a piece from the dock turns Draw on.)
+    if (isTouchDevice() && useLevel.getState().tool === "build") useLevel.getState().setTool("select");
+  }, []);
   useWarnBeforeLeaving();
   useTouchDetection();
   return (

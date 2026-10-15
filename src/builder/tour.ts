@@ -35,7 +35,7 @@ export const TOUR: TourStep[] = [
     title: "Add a block",
     body: "Levels are built from blocks, like LEGO. The bar at the bottom holds every piece, sorted into groups. The Cube (in Ground) is already picked.",
     tryIt: "Click the water (or the top or side of a block) to add a cube.",
-    touch: { tryIt: "Make sure Draw is on (bottom right), then tap the water to add a cube." },
+    touch: { body: "Levels are built from blocks, like LEGO. The bar at the bottom holds every piece, sorted into groups.", tryIt: "Open Ground and pick the Cube (that turns Draw on), then tap the water to add one." },
     glow: ["piece-cube", "draw"],
     done: (n, s) => n.blocks.length > s.blocks.length,
   },
@@ -50,7 +50,7 @@ export const TOUR: TourStep[] = [
   {
     title: "Look around",
     body: "Hold the right mouse button and drag to turn the view. Drag with the middle button (the wheel) to slide it, and scroll to zoom in and out. Made a mistake? Undo is Ctrl+Z (or Undo, in Tools).",
-    touch: { body: "Tap Draw to switch it off. Now one finger turns the view, two fingers pinch to zoom and drag to slide it. Tap Draw again when you want to build. Made a mistake? Undo is in Tools, in the bar at the bottom." },
+    touch: { body: "Two fingers always pinch to zoom and drag to slide the view. To turn it with one finger, tap Draw to switch it off; tap Draw again when you want to build. Made a mistake? Undo is in Tools, in the bar at the bottom." },
     glow: ["undo"],
   },
   {

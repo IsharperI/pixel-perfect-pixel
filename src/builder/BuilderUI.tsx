@@ -253,7 +253,7 @@ function DrawButton() {
       >
         <Pencil size={22} aria-hidden />
         <span className="draw-btn-label">{draw ? "Draw on" : "Draw off"}</span>
-        <span className="draw-btn-sub">{draw ? "camera still" : "drag to look"}</span>
+        <span className="draw-btn-sub">{draw ? "pinch to zoom" : "drag to look"}</span>
       </button>
     </div>
   );
