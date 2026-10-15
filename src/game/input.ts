@@ -15,6 +15,16 @@ export const input = {
 };
 
 
+/**
+ * Let go of every key. Used whenever we might miss a key being released: the
+ * window losing focus, switching tabs or pages, or the game going away (a key
+ * let go while nothing is listening would otherwise stay "held" forever).
+ */
+export function releaseAllKeys() {
+  input.keys.clear();
+  resetTouch();
+}
+
 /** Let go of everything the touch controls are holding. */
 export function resetTouch() {
   input.touch.x = 0;
@@ -70,6 +80,7 @@ let padGrabWas = false;
 
 export function useInputListeners() {
   useEffect(() => {
+    releaseAllKeys(); // anything "held" from before this game appeared is stale
     const isTyping = () => {
       const el = document.activeElement as HTMLElement | null;
       return !!el && (el.tagName === "INPUT" && (el as HTMLInputElement).type !== "range" && (el as HTMLInputElement).type !== "checkbox" || el.tagName === "TEXTAREA");
@@ -85,6 +96,9 @@ export function useInputListeners() {
       }
       if (e.code === "KeyT" && !e.repeat) { useUI.getState().showOrToggle("panelOpen"); return; }
       if (e.code === "KeyE" && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) { input.grabPressedAt = performance.now() / 1000; return; }
+      // Browser shortcuts (Ctrl/⌘ + a key) aren't moves; and on a Mac, keys let go while ⌘ is
+      // held never report it, so don't start holding them
+      if (e.ctrlKey || e.metaKey) return;
       if (MOVE.includes(e.code)) {
         // keep sliders from eating game keys
         (document.activeElement as HTMLElement | null)?.blur?.();
@@ -94,8 +108,12 @@ export function useInputListeners() {
         input.keys.add(e.code);
       }
     };
-    const up = (e: KeyboardEvent) => input.keys.delete(e.code);
-    const blur = () => { input.keys.clear(); resetTouch(); };
+    const up = (e: KeyboardEvent) => {
+      input.keys.delete(e.code);
+      if (e.key === "Meta") releaseAllKeys(); // see above: a Mac may have swallowed other keys' release
+    };
+    const blur = () => releaseAllKeys();
+    const hidden = () => { if (document.hidden) releaseAllKeys(); };
     // First touch anywhere: show the on-screen controls
     const touchStart = (e: PointerEvent) => {
       if (e.pointerType === "touch" && !useUI.getState().touchMode) useUI.getState().setTouchMode(true);
@@ -104,7 +122,10 @@ export function useInputListeners() {
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
+    document.addEventListener("visibilitychange", hidden);
     return () => {
+      releaseAllKeys(); // leaving: we won't hear these keys being let go
+      document.removeEventListener("visibilitychange", hidden);
       window.removeEventListener("pointerdown", touchStart, true);
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
