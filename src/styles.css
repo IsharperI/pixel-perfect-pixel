@@ -557,3 +557,18 @@
 .insp-action[data-danger]:hover { color: var(--destructive); background: oklch(0.97 0.03 25); }
 .insp-action:disabled { opacity: .4; cursor: not-allowed; }
 .insp-help b.ax-r { color: #dc2626; } .insp-help b.ax-b { color: #2563eb; } .insp-help b.ax-g { color: #16a34a; }
+
+/* ---- Level Builder on phones: the selected-block card is a short sheet along the bottom ---- */
+.insp-handle { display: none; }
+.insp-more { display: contents; }
+@media (max-width: 600px) {
+  .insp { top: auto; left: 0; right: 0 !important; bottom: 0; width: auto; max-height: 42%; z-index: 30; padding: 0 .9rem calc(.8rem + env(safe-area-inset-bottom)); border-radius: 1.2rem 1.2rem 0 0; border-bottom: none; overflow-y: auto; overscroll-behavior: contain; gap: .45rem; }
+  .insp-handle { display: grid; place-items: center; position: sticky; top: 0; z-index: 2; height: 20px; margin: 0 -.9rem; background: var(--card); }
+  .insp-handle span { width: 40px; height: 5px; border-radius: 999px; background: color-mix(in oklch, var(--foreground) 25%, transparent); }
+  .insp-head { position: sticky; top: 20px; z-index: 2; background: var(--card); padding-bottom: .2rem; }
+  .insp-x { width: 34px; height: 34px; background: var(--secondary); }
+  .insp-action { padding: .4rem .2rem .35rem; }
+  .insp[data-mini="true"] .insp-more { display: none; }
+  /* The sheet takes the dock's place while a block is selected */
+  body:has(.insp) .dock-wrap { display: none; }
+}

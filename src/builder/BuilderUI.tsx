@@ -307,6 +307,7 @@ function BlockActions({ block }: { block: Block }) {
 function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
   const block = useLevel((s) => s.blocks.find((b) => b.id === s.selectedId) ?? null);
   const stopIndex = useLevel((s) => s.stopIndex);
+  const mini = useUI((u) => u.inspMini);
   if (!block) return null;
   const S = useLevel.getState();
   const m = block.move;
@@ -314,12 +315,17 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
   const nearest = <T extends number>(v: number, opts: readonly T[]) => opts.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
 
   return (
-    <div className="insp" data-panel={panelOpen} aria-label="Selected piece">
+    <div className="insp" data-panel={panelOpen} data-mini={mini} aria-label="Selected piece">
+      {/* Phones: a handle to shrink the sheet to just its buttons (or grow it back) */}
+      <button className="insp-handle" onClick={(e) => { blur(e); useUI.setState({ inspMini: !mini }); }} aria-label={mini ? "Show all settings" : "Show just the buttons"}>
+        <span aria-hidden />
+      </button>
       <div className="insp-head">
         <span className="insp-title">{m ? `Moving ${label.toLowerCase()}` : block.tilt ? `Tilting ${label.toLowerCase()}` : label}</span>
         <button className="insp-x" onClick={(e) => { blur(e); S.select(null); }} aria-label="Deselect"><X size={14} aria-hidden /></button>
       </div>
       <BlockActions block={block} />
+      <div className="insp-more">
       {block.piece === "bounce" ? (
         <BounceSlider id={block.id} height={bounceHeight(block)} />
       ) : block.piece === "star" ? (
@@ -370,9 +376,10 @@ function BlockInspector({ panelOpen }: { panelOpen: boolean }) {
           <Choice<number> label="Wait at stops" value={nearest(m.wait, Object.values(WAITS))} options={[[WAITS.none, "No"], [WAITS.short, "A bit"], [WAITS.long, "Longer"]]} onChange={(wait) => S.updateMotion(block.id, { wait })} />
           <Choice<Motion["trigger"]> label="Starts" value={m.trigger} options={[["always", "Right away"], ["step", "When stepped on"]]} onChange={(trigger) => S.updateMotion(block.id, { trigger })} />
           <Choice<boolean> label="At the end" value={m.loop} options={[[false, "Back and forth"], [true, "Loop"]]} onChange={(loop) => S.updateMotion(block.id, { loop })} />
-          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setMotion(block.id, undefined); }}>Stop it moving</button>
+          <button className="level-link insp-stopmoving" onClick={(e) => { blur(e); S.setMotion(block.id, undefined); }}>Stop moving</button>
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { useUI } from "../game/settings";
 import { levelSig, useLevel, type Tool } from "./levelStore";
 import { PIECE_ORDER } from "./pieces";
 import { useQuality } from "../game/quality";
+import { CameraLift } from "../game/CameraLift";
 
 /** The Level Builder page: build with blocks, then press Play to try your level. */
 export function LevelBuilder() {
@@ -33,6 +34,11 @@ export function LevelBuilder() {
       <div className="relative flex-1 overflow-hidden [overflow:clip]" data-mode={mode}>
         <Canvas shadows dpr={dpr} gl={{ stencil: true }} camera={{ position: [9, 11, 14], fov: 50 }} onContextMenu={(e) => e.preventDefault()}>
           <SceneLighting />
+          {/* Phones: slide the picture up while the selected-block sheet covers the bottom */}
+          <CameraLift amount={(phone) => {
+            if (!phone || useLevel.getState().mode !== "edit" || !useLevel.getState().selectedId || useLevel.getState().tool !== "select") return 0;
+            return useUI.getState().inspMini ? 0.08 : 0.2;
+          }} />
           {mode === "edit" ? <EditorScene /> : <PlayScene key={run} />}
         </Canvas>
         {mode === "play" && <SpeedLines />}

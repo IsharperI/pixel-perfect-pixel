@@ -255,6 +255,8 @@ type UI = {
   /** Phones: which tab the bottom drawer shows, and whether it's pulled up tall */
   drawerTab: "feel" | "debug";
   drawerTall: boolean;
+  /** Phones, Level Builder: the selected-block sheet shrunk to just its buttons */
+  inspMini: boolean;
   setDrawer: (d: Partial<Pick<UI, "drawerTab" | "drawerTall">>) => void;
   toggle: (k: "panelOpen" | "showDebug" | "showTrail" | "showGhost" | "hideUI") => void;
   setTouchMode: (on: boolean) => void;
@@ -270,6 +272,7 @@ export const useUI = create<UI>((set) => ({
   hideUI: false,
   drawerTab: "feel",
   drawerTall: false,
+  inspMini: false,
   setDrawer: (d) => set(d),
   showTrail: true,
   showGhost: true,
