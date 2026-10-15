@@ -1,37 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eraser, GraduationCap, Hammer, MousePointer2, MoveRight, Scale, Sprout, Pencil, Play, Plus, Redo2, RotateCcw, RotateCw, Settings2, Trash2, Undo2, X } from "lucide-react";
-import { useLevel, type Tool } from "./levelStore";
+import { GraduationCap, MoveRight, Scale, Pencil, Play, Plus, RotateCcw, Settings2, X } from "lucide-react";
+import { useLevel } from "./levelStore";
 import { usePlay } from "./playState";
 import { useTour } from "./tour";
 import { flagLocked, formatCountdown, formatTime, goalEmoji, goalMissing, goalSentence, isPlayground, type Rules } from "./rules";
-import { BEHAVIOUR_COLOURS, BOUNCE_MAX, BOUNCE_MIN, PIECES, PIECE_ORDER, bounceHeight, canMove, type Behaviour, type Motion } from "./pieces";
+import { BOUNCE_MAX, BOUNCE_MIN, PIECES, bounceHeight, canMove, type Motion } from "./pieces";
 import { MAX_STOPS } from "./levelStore";
 import { SPEEDS, WAITS, defaultMotion } from "./motion";
 import { TILT_MAX, TILT_MIN, TILT_STEP } from "./tilt";
 import { useSettings, useUI } from "../game/settings";
-import { PieceIcon } from "./PieceIcon";
 import { ShareButton } from "./ShareLevel";
-
-const TOOLS: { id: Tool; label: string; key: string; icon: typeof Hammer }[] = [
-  { id: "build", label: "Build", key: "B", icon: Hammer },
-  { id: "select", label: "Move", key: "V", icon: MousePointer2 },
-  { id: "paint", label: "Vines", key: "P", icon: Sprout },
-  { id: "erase", label: "Erase", key: "E", icon: Eraser },
-];
-
-const HINTS: Record<Tool, string> = {
-  build: "Click to add a piece, or drag to fill an area · R rotates · right-drag turns the view · middle-drag slides · scroll zooms",
-  select: "Click a block, then drag its arrows to move it (green = up, to make it float) · Make it move or tilt for special platforms · R rotates · Delete removes",
-  paint: "Click a block's side to grow climbable vines (click again to remove) · drag to paint along a wall · right-drag turns the view",
-  erase: "Click a block to remove it, or drag to clear an area · Ctrl+Z brings it back · right-drag turns the view",
-};
+import { BuildDock } from "./BuildDock";
 
 const blur = (e: React.MouseEvent) => (e.currentTarget as HTMLElement).blur();
 
 /** Everything drawn over the 3D view: tools, pieces, Play/Stop, the colour legend and hints. */
 export function BuilderUI() {
-  const { tool, piece, rot, mode, past, future, panelOpen, setTool, setPiece, rotate, undo, redo, setMode, setPanelOpen } = useLevel();
+  const { tool, mode, panelOpen, setMode, setPanelOpen } = useLevel();
   const touring = useTour((t) => t.status === "active");
   const touchMode = useUI((u) => u.touchMode);
 
@@ -54,47 +40,7 @@ export function BuilderUI() {
 
   return (
     <>
-      <aside className="builder-toolbar" aria-label="Building tools">
-        <p className="builder-heading">Tools</p>
-        <div className="builder-tools">
-          {TOOLS.map((t) => (
-            <button key={t.id} className="builder-tool" data-tour={`tool-${t.id}`} data-on={tool === t.id} onClick={(e) => { blur(e); setTool(t.id); }} title={`${t.label} (${t.key})`}>
-              <t.icon size={18} aria-hidden />
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </div>
-
-        <p className="builder-heading">Pieces</p>
-        <div className="builder-pieces">
-          {PIECE_ORDER.map((id, i) => (
-            <button
-              key={id}
-              className="builder-piece"
-              data-tour={`piece-${id}`}
-              data-on={tool === "build" && piece === id}
-              onClick={(e) => { blur(e); setPiece(id); }}
-              title={`${PIECES[id].label} (${i + 1})`}
-            >
-              <PieceIcon piece={id} />
-              <span>{PIECES[id].label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="builder-actions">
-          <button className="builder-action" data-tour="rotate" onClick={(e) => { blur(e); rotate(); }} title="Rotate (R)">
-            <RotateCw size={16} aria-hidden style={{ transform: `rotate(${rot * 90}deg)`, transition: "transform .2s" }} />
-          </button>
-          <button className="builder-action" data-tour="undo" onClick={(e) => { blur(e); undo(); }} disabled={!past.length} title="Undo (Ctrl+Z)">
-            <Undo2 size={16} aria-hidden />
-          </button>
-          <button className="builder-action" onClick={(e) => { blur(e); redo(); }} disabled={!future.length} title="Redo (Ctrl+Y)">
-            <Redo2 size={16} aria-hidden />
-          </button>
-        </div>
-        <ClearButton />
-      </aside>
+      <BuildDock />
 
       <div className="builder-top" data-panel={panelOpen}>
         <button className="builder-level-btn" data-tour="tour" onClick={(e) => { blur(e); useTour.getState().begin(); }} title="Take the Level Builder tour">
@@ -111,8 +57,6 @@ export function BuilderUI() {
 
       {tool === "select" && <BlockInspector panelOpen={panelOpen} />}
       {touchMode && tool !== "select" && <DrawButton />}
-      {!panelOpen && <Legend />}
-      {!panelOpen && !touring && <div className="builder-hint">{HINTS[tool]}</div>}
     </>
   );
 }
@@ -476,26 +420,6 @@ function TiltSlider({ id, max }: { id: string; max: number }) {
   );
 }
 
-/** Empty the level, after asking. */
-function ClearButton() {
-  const [asking, setAsking] = useState(false);
-  return (
-    <>
-      <button className="builder-clear" onClick={(e) => { blur(e); setAsking(true); }} title="Remove everything and start again">
-        <Trash2 size={14} aria-hidden /> Clear level
-      </button>
-      {asking && (
-        <ConfirmDialog
-          title="Reset level?"
-          message="This removes every piece except the Start pad. (Undo can bring it back.)"
-          yes="Yes, clear it"
-          no="No, keep it"
-          onAnswer={(yes) => { setAsking(false); if (yes) useLevel.getState().clearLevel(); }}
-        />
-      )}
-    </>
-  );
-}
 
 /** A friendly yes/no question. Enter = yes, Esc = no. */
 export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: string; message: string; yes: string; no: string; onAnswer: (yes: boolean) => void }) {
@@ -523,18 +447,3 @@ export function ConfirmDialog({ title, message, yes, no, onAnswer }: { title: st
   );
 }
 
-/** What each colour means. */
-function Legend() {
-  const shown: Behaviour[] = ["solid", "slope", "moving", "tilting", "vines", "bounce", "danger", "start", "checkpoint", "goal", "star"];
-  return (
-    <div className="builder-legend" aria-label="Colour key">
-      <p className="builder-heading">Colour key</p>
-      {shown.map((b) => (
-        <div key={b} className="builder-legend-row">
-          <span className="builder-swatch" data-kind={b} style={{ background: BEHAVIOUR_COLOURS[b].colour, borderColor: BEHAVIOUR_COLOURS[b].edge }} />
-          <span>{BEHAVIOUR_COLOURS[b].meaning}</span>
-        </div>
-      ))}
-    </div>
-  );
-}

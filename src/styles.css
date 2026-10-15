@@ -166,8 +166,8 @@
   .tut-mark { flex: none; width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-size: .7rem; font-weight: 800; background: var(--card); border: 1px solid var(--border); }
   .tut-try[data-done="true"] .tut-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-foreground); }
   .tut-next { font-size: .8rem; font-weight: 700; padding: .5rem; border-radius: .55rem; background: var(--secondary); border: 1px solid var(--border); color: var(--muted-foreground); transition: all .2s; }
-  .tour-card { left: 224px; bottom: 12px; width: min(350px, calc(100% - 240px)); z-index: 30; gap: .5rem; padding: .85rem 1rem .9rem; }
-  @media (max-width: 700px) { .tour-card { left: 12px; width: calc(100% - 24px); bottom: 104px; } }
+  .tour-card { left: 12px; top: 12px; bottom: auto; width: min(350px, calc(100% - 24px)); z-index: 30; gap: .5rem; padding: .85rem 1rem .9rem; }
+  @media (max-width: 700px) { .tour-card { left: 12px; top: auto; width: calc(100% - 24px); bottom: calc(var(--dock-h, 90px) + 22px); } }
   .builder-hint[data-tour-hidden="true"] { display: none; }
   [data-tour-glow="true"] { position: relative; z-index: 1; outline: 3px solid #f59e0b !important; outline-offset: 2px; animation: tour-glow 1.2s ease-in-out infinite; }
   @keyframes tour-glow { 50% { outline-color: #fde68a; box-shadow: 0 0 0 6px color-mix(in oklch, #f59e0b 35%, transparent); } }
@@ -199,7 +199,7 @@
      touch controls, the goal display while playing, and end-of-level screens. */
   html[data-hide-ui="true"] :is(
     .debug-overlay, .settings-panel, .panel-toggle, .tut-card, .level-label, .controls-bar,
-    .builder-toolbar, .builder-legend, .builder-hint, .insp, .builder-level-btn, .play-hud-missing
+    .builder-toolbar, .builder-legend, .builder-hint, .dock-wrap, .insp, .builder-level-btn, .play-hud-missing
   ) { display: none !important; }
   .ribbon-note { position: absolute; top: calc(100% + 10px); left: 0; z-index: 60; white-space: nowrap; font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .5rem; background: var(--foreground); color: var(--card); box-shadow: var(--shadow-panel); }
   .ribbon-note[data-ok="false"] { background: oklch(0.55 0.18 25); }
@@ -515,4 +515,36 @@
   .touch-buttons .touch-crouch { position: absolute; right: 108px; bottom: 0; margin: 0; width: 66px; height: 66px; }
   .touch-buttons .touch-grab { position: absolute; right: 16px; bottom: 108px; margin: 0; }
   .touch-stick[data-active="false"] { bottom: 70px; left: 90px; }
+}
+
+/* ---- Level Builder: the build dock along the bottom ---- */
+.dock-wrap { position: absolute; left: 0; right: 0; bottom: 12px; z-index: 20; display: flex; justify-content: center; pointer-events: none; transition: right .35s cubic-bezier(.2,.8,.2,1); }
+.dock-wrap[data-panel="true"] { right: 372px; }
+.build-dock { pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100% - 24px); }
+.build-dock > * { pointer-events: auto; }
+.dock-caption { pointer-events: none !important; font-size: .75rem; line-height: 1.35; color: var(--muted-foreground); background: color-mix(in oklch, var(--card) 90%, transparent); backdrop-filter: blur(6px); padding: .3rem .8rem; border-radius: 999px; max-width: min(560px, 100%); text-align: center; box-shadow: var(--shadow-panel); }
+.dock-items { display: flex; gap: 6px; padding: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 1.1rem; box-shadow: var(--shadow-panel); animation: dock-pop .18s ease-out; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+@keyframes dock-pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dock-item { flex: none; width: 66px; display: grid; justify-items: center; align-content: center; gap: 2px; padding: 6px 4px 5px; border-radius: .8rem; background: var(--secondary); border: 2px solid transparent; font-size: .68rem; font-weight: 600; color: var(--foreground); transition: all .15s; }
+.dock-item:hover:not(:disabled) { transform: translateY(-2px); background: color-mix(in oklch, var(--primary) 8%, var(--secondary)); }
+.dock-item[data-on="true"] { border-color: var(--primary); background: color-mix(in oklch, var(--primary) 14%, var(--card)); }
+.dock-item:disabled { opacity: .4; cursor: not-allowed; }
+.dock-item[data-danger]:hover { color: var(--destructive); }
+.dock-icon { height: 32px; display: grid; place-items: center; }
+.dock-label { white-space: nowrap; }
+.dock-cats { display: flex; gap: 3px; padding: 5px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-panel); }
+.dock-cat { position: relative; display: flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--muted-foreground); transition: all .15s; }
+.dock-cat:hover { color: var(--foreground); background: var(--secondary); }
+.dock-cat[data-open="true"] { background: var(--foreground); color: var(--card); }
+.dock-cat[data-picked="true"]:not([data-open="true"])::after { content: ""; position: absolute; top: 5px; right: 7px; width: 7px; height: 7px; border-radius: 999px; background: var(--primary); }
+[data-glow-cat="true"] { outline: 3px solid #f59e0b !important; outline-offset: 2px; animation: tour-glow 1.2s ease-in-out infinite; }
+@media (max-width: 700px) {
+  .dock-wrap { bottom: 8px; }
+  .dock-wrap[data-panel="true"] { right: 0; }
+  .dock-cat { flex-direction: column; gap: 1px; padding: .35rem .6rem; font-size: .6rem; }
+  .dock-item { width: 54px; font-size: .6rem; padding: 5px 3px 4px; }
+  .dock-icon { height: 28px; }
+  .dock-icon svg[viewBox="0 0 40 40"] { width: 28px; height: 28px; }
+  .dock-caption { font-size: .68rem; padding: .25rem .65rem; }
+  .draw-switch { bottom: calc(var(--dock-h, 90px) + 18px); }
 }
